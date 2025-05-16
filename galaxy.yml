@@ -44,7 +44,7 @@ tags: [gluware, networking, firewall]
 dependencies: {}
 
 # The URL of the originating SCM repository
-repository: http://example.com/repository
+repository: https://github.com/gluware/gluware_ansible_collection
 
 # The URL to any online docs
 documentation: http://docs.example.com
