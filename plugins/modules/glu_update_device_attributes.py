@@ -42,7 +42,17 @@ DOCUMENTATION = '''
                 - Id in Gluware Control for the device.
                 - The glu_devices inventory plugin automatically supplies this variable.
             type: string
-            required: True
+            required: False
+        org_name:
+            description:
+                - Organization name.
+            type: string
+            required: False
+        name:
+            description:
+                - Device name.
+            type: string
+            required: False
         data:
             description:
                 - Attributes with values to update to.
@@ -75,6 +85,7 @@ import urllib.error as urllib_error
 import re
 import json
 import os
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
 
 try:
     from urlparse import urljoin
@@ -89,8 +100,9 @@ except ImportError:
 
 def run_module():
     module_args = dict(
-        glu_device_id=dict(type='str', required=True),
-        glu_connection_file=dict(type='str', required=False),
+        org_name=dict(type='str', required=False),
+        name=dict(type='str', required=False),
+        glu_device_id=dict(type='str', required=False),
         data=dict(type='dict', required=True),
         gluware_control=dict(
             type='dict',
@@ -107,11 +119,20 @@ def run_module():
 
     module = AnsibleModule(
         argument_spec=module_args,
-        supports_check_mode=True
+        required_one_of=[['glu_device_id', 'org_name']],
+        mutually_exclusive=[['glu_device_id', 'org_name']],
+        supports_check_mode=False
     )
-
+    org_name = module.params.get('org_name')
+    name = module.params.get('name')
+    if module.params.get('glu_device_id'):
+        glu_device_id = module.params.get('glu_device_id')
+    else:
+        glu_device_id = ""
     # Gather connection info from parameters or environment
+
     user_params = module.params.get('gluware_control') or {}
+
 
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
@@ -140,11 +161,37 @@ def run_module():
         headers=http_headers
     )
 
+    get_device = True
+
+    if glu_device_id:
+        # Only glu_device_id should be used
+        if org_name or name:
+            module.warning_json(msg="When 'glu_device_id' is specified, 'org_name' and 'name' must not be set. Only using glu_device_id")
+    else:
+        # org_name and name must both be provided
+        if not org_name or not name:
+            module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
+        request_payload = {
+            "url_username" : api_dict['username'],
+            "url_password": api_dict['password'],
+            "validate_certs" : not api_dict['trust_any_host_https_certs'],
+            "force_basic_auth" : True,
+            "headers" : http_headers
+        }
+        glu_api = GluwareAPIClient(request_payload, api_host)
+        glu_device = glu_api._get_device_id(name, org_name)
+        #print(glu_device)
+        glu_device_id = glu_device.get('id')
+        
+
     result = dict(changed=False)
-    glu_device_id = module.params['glu_device_id']
+    print(glu_device_id)
+    #glu_device_id = module.params['glu_device_id']
+    api_url = urljoin(api_host, '/api/devices/' + glu_device_id)
+
+
     api_data = module.params['data']
 
-    api_url = urljoin(api_host, '/api/devices/' + glu_device_id)
     http_body = json.dumps(api_data)
 
     try:
@@ -162,4 +209,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
