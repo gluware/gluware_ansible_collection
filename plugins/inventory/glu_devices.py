@@ -177,7 +177,7 @@ DiscoveredOSToAnsibleNetworkOS = {
 }  
   
 class InventoryModule(BaseInventoryPlugin, Constructable):
-  NAME = "gluware.control.glu_devices"
+  NAME = "gluware_inc.control.glu_devices"
   INVENTORY_FILE_SUFFIXES = ("glu_devices.yml")
   def __init__(self):
       super(InventoryModule, self).__init__()
