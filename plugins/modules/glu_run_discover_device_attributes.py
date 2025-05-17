@@ -8,13 +8,10 @@ ANSIBLE_METADATA = {'metadata_version': '1.2.0',
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    module: glu_update_device_attributes
-    short_description: Update device attributes on a Gluware Device
+    module: glu_run_discover_device_attributes 
+    short_description: Perform a discover device attributes on a Gluware Device
     description:
-        - For the current Gluware device update specified attribute values in Gluware Control using the glu_device_id.
-        - >
-          Note: If an error of 'HTTP Error 400: Bad Request' is displayed then possibly the playbook task is trying to set a
-          read only attribute or a non existent attribute.
+        - For the current Gluware device trigger a discover device attributes in Gluware Control using the glu_device_id.
     version_added: '2.8'
     author:
         - John Anderson
@@ -53,29 +50,18 @@ DOCUMENTATION = '''
                 - Device name.
             type: string
             required: False
-        data:
-            description:
-                - Attributes with values to update to.
-            type: dict
-            required: True
 '''
 
 EXAMPLES = r'''
     #
-    # Update Gluware Control attribute (including custom attributes) values for the current device
+    # Trigger a Gluware Control discover device attributes for the current device
     #
-    - name: Update the custom attribute playbook_date with the current date in Gluware Control
-      glu_update_device_attributes:
+    - name: Running discover device attributes for the current device
+      glu_run_discover_device_attributes:
         glu_connection_file : "{{ inventory_file }}"
         glu_device_id: "{{ glu_device_id }}"
-        data:
-          playbook_date : "{{ lookup('pipe','date +%Y-%m-%d-%H-%M-%S') }}"
 
 '''
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
-# Copyright: (c) 2020, Gluware Inc.
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import Request
@@ -99,11 +85,12 @@ except ImportError:
     from urllib.parse import urljoin
 
 def run_module():
+
+    # Module parameters
     module_args = dict(
         org_name=dict(type='str', required=False),
         name=dict(type='str', required=False),
         glu_device_id=dict(type='str', required=False),
-        data=dict(type='dict', required=True),
         gluware_control=dict(
             type='dict',
             required=False,
@@ -116,6 +103,8 @@ def run_module():
         )
     )
 
+    # Initialize the AnsibleModule to use in communication from and to the
+    # code (playbook, etc) interacting with this module.
     module = AnsibleModule(
         argument_spec=module_args,
         required_one_of=[['glu_device_id', 'org_name']],
@@ -133,6 +122,7 @@ def run_module():
     user_params = module.params.get('gluware_control') or {}
 
 
+    # Figure out the Gluware Control connection information.
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
         'username': user_params.get('username') or os.environ.get('GLU_CONTROL_USERNAME'),
@@ -140,18 +130,27 @@ def run_module():
         'trust_any_host_https_certs': user_params.get('trust_any_host_https_certs') or os.environ.get('GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS'),
     }
 
+
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
             module.fail_json(msg=f"Missing required connection parameter: {key}", changed=False)
 
+    # All the required values exist, so use the information in the file for the connection information.
+    api_host = api_dict.get('host')
+
+    # Make sure there is a http or https preference for the api_host
     api_host = api_dict['host']
     if not re.match('(?:http|https)://', api_host):
         api_host = 'https://{host}'.format(host=api_host)
 
+
+    # Make sure the Content-Type is set correctly.. otherwise it defaults to application/x-www-form-urlencoded which
+    # causes a 400 from Gluware Control
     http_headers = {
-        'Content-Type': 'application/json'
+        'Content-Type' : 'application/json'
     }
 
+    # Create the request_handler to make the calls with.
     request_handler = Request(
         url_username=api_dict['username'],
         url_password=api_dict['password'],
@@ -160,6 +159,7 @@ def run_module():
         headers=http_headers
     )
 
+    # Default result JSON object
     get_device = True
 
     if glu_device_id:
@@ -181,38 +181,37 @@ def run_module():
         glu_device = glu_api._get_device_id(name, org_name)
         #print(glu_device)
         glu_device_id = glu_device.get('id')
-        
 
     result = dict(changed=False)
 
-    #glu_device_id = module.params['glu_device_id']
-    api_url = urljoin(api_host, '/api/devices/' + glu_device_id)
-    
+    # This api call is for Gluware Control.
+    api_url = urljoin(api_host, '/api/devices/discover')
     if not glu_device_id:
         module.fail_json(msg="No Gluware ID found for device", changed=False)
-
-    api_data = module.params['data']
-
+    # Create the body of the request.
+    api_data = {
+        "devices" : [glu_device_id]
+    }
     http_body = json.dumps(api_data)
 
+    # Make the actual api call.
     try:
-        response = request_handler.put(api_url, data=http_body)
-    except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e:
-        error_msg = f'Gluware Control call failed: {str(e)}'
-        if 'Bad Request' in error_msg:
-            error_msg = 'Invalid attribute(s) or values for the device. Data provided: ' + http_body
+        response = request_handler.post(api_url, data=http_body)
+    except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
+        error_msg = 'Gluware Control call failed: {msg}'.format(msg=e2)
         module.fail_json(msg=error_msg, changed=False)
 
-    if response.status != 200:
+    # Check for 204 No Content response
+    if response.status != 204:
         error_msg = f"Unexpected response from Gluware Control: HTTP {response.status} - {response.reason}"
         module.fail_json(msg=error_msg, changed=False)
 
     module.exit_json(**result)
+
 
 def main():
     run_module()
 
 if __name__ == '__main__':
     main()
-
 
