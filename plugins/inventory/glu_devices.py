@@ -5,12 +5,12 @@
 
 # Gluware Ansible Inventory Plugin
 
-ANSIBLE_METADATA = {'metadata_version': '1.1.0',
+ANSIBLE_METADATA = {'metadata_version': '1.3.0',
                     'status': ['released'],
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    name: gluware.control.glu_devices
+    name: gluware_inc.control.glu_devices
     plugin_type: inventory
     short_description: Gluware Control Inventory Source
     description:
