@@ -45,7 +45,7 @@ The example below shows how to use the inventory plugin to build your source of 
 glu_devices.yml file specifies connection details to your Gluware Control instllation
 Example Command: ``ansible-inventory -i glu_devices.yml --list -v``
 ```
-plugin: glu_devices
+plugin: gluware_inc.control.glu_devices
 host: 'https://10.0.0.1'
 username: <user name in Gluware Control system for device API calls>
 password: <password for user name>

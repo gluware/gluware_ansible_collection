@@ -27,7 +27,7 @@ DOCUMENTATION = '''
         plugin:
             description: This tells ansible (through the auto inventory plugin) this is a source file for the glu_devices plugin.
             required: True
-            choices: ['glu_devices', 'gluware.control.glu_devices']
+            choices: ['glu_devices', 'gluware_inc.control.glu_devices']
         host:
             description: The network address or name of your Gluware Control system host.
             type: string
