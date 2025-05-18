@@ -42,11 +42,8 @@ When using the Gluware Inventory Plugin `glu_devices`, the plugin witll generate
 
 The example below shows how to use the inventory plugin to build your source of truth from Gluware Device Manager:
 
-```
 glu_devices.yml file specifies connection details to your Gluware Control instllation
-Example Command: ansible-inventory -i glu_devices.yml --list -v
-
-
+Example Command: ``ansible-inventory -i glu_devices.yml --list -v``
 ```
 plugin: glu_devices
 host: 'https://10.0.0.1'
@@ -76,7 +73,7 @@ compose:
     glu_site_name : sideName
     glu_creds_rule : credsName
     glu_props_licenses : discoveredLicenses
-
+```
 ### Use Case 2 - Orchestrate lifecycle management of Gluware devices using Ansible playbook with targeted nodes
 This example will show how to utilize all Gluware Ansible modules to manage the lifecycle of the device using Ansible playbooks
 ```
