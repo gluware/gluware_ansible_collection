@@ -3,7 +3,7 @@
 
 # Copyright: (c) 2020, Gluware Inc.
 
-ANSIBLE_METADATA = {'metadata_version': '1.2.0',
+ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
 
@@ -11,16 +11,20 @@ DOCUMENTATION = '''
     module: glu_audit_config
     short_description: Perform a audit on the current captured config on a Gluware Device
     description:
-        - For the current Gluware device trigger a audit on the current captured config in Gluware Control using the glu_device_id.
+        - For the current Gluware device trigger a audit on the current captured config in Gluware Control.
+        - By default this module will use device_id parameter to find the device in Gluware.
+        - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
+        Note: If an error of 'HTTP Error 400: Bad Request' is displayed then possibly the playbook task is trying to set a
     version_added: '2.8'
     author:
         - John Anderson
+        - Oleg Gratwick
     options:
         gluware_control:
             description:
-                - Connection details for the Gluware Control system.
+                - Connection details for the Gluware Control platform.
             type: dict
-            required: false
+            required: True
             suboptions:
                 host:
                     description: Hostname or IP address of the Gluware Control server.
@@ -29,35 +33,35 @@ DOCUMENTATION = '''
                     description: Username for authentication with Gluware Control.
                     type: string
                 password:
-                    description: Password for authentication.
+                    description: Password for authentication with Gluware Control.
                     type: string
                 trust_https_certs:
                     description: Bypass HTTPS certificate verification.
                     type: boolean
         glu_device_id:
             description:
-                - Id in Gluware Control for the device.
+                - ID of the device within Gluware.
                 - The glu_devices inventory plugin automatically supplies this variable.
             type: string
             required: False
         org_name:
             description:
-                - Organization name.
+                - Organization name the device is in within Gluware.
             type: string
             required: False
         name:
             description:
-                - Device name.
+                - Target device name within Gluware Control.
             type: string
             required: False
         description:
             description:
-                - Audit description.
+                - Description for the instance of this audit execution.
             type: string
             required: True
         audit_policy:
             description:
-                - Audit Policy Name.
+                - Audit Policy Name as displayed in Gluware Config Drift & Audit.
             type: string
             required: True
 '''
@@ -68,21 +72,11 @@ EXAMPLES = r'''
     #
     - name: Creating a audit on the current captured config for the current device
       glu_audit_config:
-        glu_connection_file : "{{ inventory_file }}"
+        gluware_control: "{{control}}"
         glu_device_id: "{{ glu_device_id }}"
-        audit_title: "Checking config for correct NTP Server"
-        audit_policy_name: "Data Center NTP Server Audit"
+        description: "Checking config for correct NTP Server"
+        audit_policy: "Data Center NTP Server Audit"
 
-    #
-    # Trigger a Gluware Control capture config and a audit for the current device.
-    #
-    - name: Capturing the current config then running a audit on that captured config for the current device
-      glu_audit_config:
-        glu_connection_file : "{{ inventory_file }}"
-        glu_device_id: "{{ glu_device_id }}"
-        audit_title: "Checking config for password strength"
-        audit_policy_name: "Data Center Password Strength Audit"
-        run_capture_config: True
 
 '''
 
@@ -190,14 +184,13 @@ def run_module():
             module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
         glu_api = GluwareAPIClient(request_payload, api_host)
         glu_device = glu_api._get_device_id(name, org_name)
-        #print(glu_device)
         glu_device_id = glu_device.get('id')
 
     
     glu_api = GluwareAPIClient(request_payload, api_host)
     glu_org_id = glu_api._get_org_name(org_name)
     if not glu_org_id:
-        self.module.fail_json(msg=f"No organization found with name {org_name}")
+        module.fail_json(msg=f"No organization found with name {org_name}")
     org_id = glu_org_id[0].get('id')
     # This api call is for Gluware Control.
     api_url_1 = urljoin(api_host, '/api/audit/policies?orgId='+org_id)
@@ -223,11 +216,6 @@ def run_module():
     if (len(arrayResponse) == 0):
         error_msg = 'No audit policy was found for the name: "{msg}"'.format(msg=audit_policy)
         module.fail_json(msg=error_msg, changed=False)
-
-    # if (len(arrayResponse) != 1):
-    #    # error_msg = 'More than one audit policy was found for the name: "{msg}"'.format(msg=audit_policy)
-    #     error_msg = arrayResponse
-    #     module.fail_json(msg=error_msg, changed=False)
 
     audit_obj = arrayResponse[0]
 

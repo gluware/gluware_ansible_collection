@@ -5,7 +5,7 @@
 
 # Gluware Ansible Inventory Plugin
 
-ANSIBLE_METADATA = {'metadata_version': '1.2.0',
+ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['released'],
                     'supported_by': 'Gluware Inc'}
 
@@ -15,7 +15,7 @@ DOCUMENTATION = '''
     short_description: Gluware Control Inventory Source
     description:
         - Get inventory from Device Manager in Gluware Control.
-        - Uses a YAML configuration file that ends with C(glu_devices.yml) for the host of the Gluware Control system and the userName and password to that Gluware Control system.
+        - Uses a YAML configuration file that ends with C(.yml/.yaml) for the host of the Gluware Control system and the userName and password to that Gluware Control system.
         - If there are any Gluware Control custom attributes with values on the devices that start with 'ansible_var_' then those variables will be added to the host (minus the 'ansible_var_' part).
         - If there is a Gluware Control custom field of 'ansible_connection' on the device then that will be the connection for that host.  Otherwise 'network_cli' will be the connection.
         - If there is a Gluware Control custom field of 'ansible_network_os' on the device then that will be the 'ansible_network_os' for that hose.  Otherwise 'discoveredOs' (if available) will be the 'ansible_network_os' for that host.
@@ -102,7 +102,7 @@ EXAMPLES = r'''
 
     #
     # Configuration to use a Gluware Control system that has a self-signed certificate.
-    plugin: glu_devices
+    plugin: gluware.control.glu_devices
     host: 'https://10.0.0.1'
     username: <user name in Gluware Control system for device API calls>
     password: <password for user name>
@@ -139,6 +139,36 @@ EXAMPLES = r'''
     trust_any_host_https_certs: True
     groups:
         front_devices: "'Front' in Area"
+    
+    #Advanced example for composition
+    plugin: glu_devices
+    host: 'https://10.0.0.1'
+    username: <user name in Gluware Control system for device API calls>
+    password: <password for user name>
+    trust_any_host_https_certs: True
+    compose:
+        glu_serial_num : discoveredSerialNumber
+        glu_asset_tag : Asset Tag
+        glu_audit_status : auditStatus
+        glu_drift_status : driftStatus
+        glu_critical_adv : custFields["Critical Advisories"]
+        glu_discovery_status : discoveryStatus
+        glu_access_status : accessStatus
+        glu_connection_method : connectionMethod
+        glu_description : "description"
+        glu_discovered_type : discoveredTypeBase
+        glu_environment : environment
+        glu_name : "name"
+        glu_props_domains : nodeProperties.Domains
+        glu_props_assembly : nodeProperties["Assembly Policy"]
+        glu_props_prov_summary : nodeProperties["Feature Provisioning Summary"]
+        glu_org_id : orgId
+        glu_conn_ip : connectionInformation.ip
+        glu_conn_type : connectionInformation.type
+        glu_site_code : sideCodeName
+        glu_site_name : sideName
+        glu_creds_rule : credsName
+        glu_props_licenses : discoveredLicenses
 
 '''
 
@@ -191,7 +221,6 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         Convert group names to valid characters that can be a directory on a file system.
       '''
       group_name = re.sub('[^a-zA-Z0-9]', '_', group_name)
-    #  group_name = group_name.lstrip('_')
       return group_name
 
   def _api_call(self, requestHandler, api_url, api_url_2):
@@ -229,9 +258,6 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
     option_groups = self.get_option('groups')
     option_keyed_groups = self.get_option('keyed_groups')
 
-    # Default ansible_connection to 'network_cli'.  This if for paramiko (used in Ansible Networking) instead of the default 'ssh' (used in normal Ansible)
-    #self.inventory.set_variable('all', 'ansible_connection', 'ansible.netcommon.network_cli')
-
     for device_obj in api_devices:
         device_name = device_obj.get('name')
         # Set the glu_device_id to work with the gluware ansible modules.
@@ -242,16 +268,11 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         #   If that is not found the try to use the ansible_network_os on the device.
         network_OS = ''
         discoveredOS = device_obj.get('discoveredOs')
-        # print "DiscoveredOS: ", discoveredOS
         if discoveredOS: network_OS = DiscoveredOSToAnsibleNetworkOS.get(discoveredOS)
         if not network_OS:
             network_OS = device_obj.get('ansible_network_os')
         if not network_OS:
-            # Since there was no mapping or overriding ansible_network_os property use the discoveredOS directly.
-            # The idea behind this logic is maybe the discoveredOS will adopt the ansible convention of network os id.
             network_OS = discoveredOS
-
-        # print "network_OS: ", network_OS
     
         # In case the ansible connection is overridden.
         ansible_connection = device_obj.get('ansible_connection')
@@ -273,13 +294,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                 if not connect_password: connect_password = device_obj.get('x_word')
                 if not connect_enable_password: connect_enable_password = device_obj.get('x_e_word')
 
-                # TODO: add logic for proxy objects. Paramiko might support proxy logic.
-
-                # Add device to group based on sitePath
-
                 # Check that that the device is not already added by some other inventory plugin.
                 if not self.inventory.get_host(device_name):
-                    # If there is a network_OS then use that as a group and assign that host to the group.
                     group = None
                     if network_OS:
                         group = self._convertGroupName(device_obj.get('discoveredOs'))

@@ -68,6 +68,3 @@ class GluwareAPIClient:
             
         except requests.RequestException as err:
             raise Exception(f"GET request to {url} failed: {err}")
-
-
-

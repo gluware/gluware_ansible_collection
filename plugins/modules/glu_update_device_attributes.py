@@ -3,27 +3,29 @@
 
 # Copyright: (c) 2020, Gluware Inc.
 
-ANSIBLE_METADATA = {'metadata_version': '1.2.0',
+ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
     module: glu_update_device_attributes
-    short_description: Update device attributes on a Gluware Device
+    short_description: Update device attributes on a Gluware Device within Gluware Control
     description:
-        - For the current Gluware device update specified attribute values in Gluware Control using the glu_device_id.
-        - >
-          Note: If an error of 'HTTP Error 400: Bad Request' is displayed then possibly the playbook task is trying to set a
-          read only attribute or a non existent attribute.
+        - Updates the Gluware device with a specified attribute values in Gluware Control.  
+        - By default this module will use device_id parameter to find the device in Gluware.
+        - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
+        Note: If an error of 'HTTP Error 400: Bad Request' is displayed then possibly the playbook task is trying to set a
+        read only attribute or a non existent attribute.
     version_added: '2.8'
     author:
         - John Anderson
+        - Oleg Gratwick
     options:
         gluware_control:
             description:
-                - Connection details for the Gluware Control system.
+                - Connection details for the Gluware Control platform.
             type: dict
-            required: false
+            required: True
             suboptions:
                 host:
                     description: Hostname or IP address of the Gluware Control server.
@@ -32,30 +34,30 @@ DOCUMENTATION = '''
                     description: Username for authentication with Gluware Control.
                     type: string
                 password:
-                    description: Password for authentication.
+                    description: Password for authentication with Gluware Control.
                     type: string
                 trust_https_certs:
                     description: Bypass HTTPS certificate verification.
                     type: boolean
         glu_device_id:
             description:
-                - Id in Gluware Control for the device.
+                - ID of the device within Gluware.
                 - The glu_devices inventory plugin automatically supplies this variable.
             type: string
             required: False
         org_name:
             description:
-                - Organization name.
+                - Organization name the device is in within Gluware.
             type: string
             required: False
         name:
             description:
-                - Device name.
+                - Target device name within Gluware Control.
             type: string
             required: False
         data:
             description:
-                - Attributes with values to update to.
+                - Key/Value pairs to update for the target device.
             type: dict
             required: True
 '''
@@ -65,11 +67,24 @@ EXAMPLES = r'''
     # Update Gluware Control attribute (including custom attributes) values for the current device
     #
     - name: Update the custom attribute playbook_date with the current date in Gluware Control
-      glu_update_device_attributes:
-        glu_connection_file : "{{ inventory_file }}"
-        glu_device_id: "{{ glu_device_id }}"
+      gluware_inc.control.glu_update_device_attributes:
+        org_name: "gluware_organization"
+        name: "{{inventory_hostname}}"
+        gluware_control: "{{control}}"
         data:
-          playbook_date : "{{ lookup('pipe','date +%Y-%m-%d-%H-%M-%S') }}"
+          playbook_date: "{{ lookup('pipe','date +%Y-%m-%d-%H-%M-%S') }}"
+
+    - name: Update the custom attribute playbook_date with the current date in Gluware Control
+      gluware_inc.control.glu_update_device_attributes:
+        org_name: "gluware_organization"
+        name: "device_01"
+        gluware_control: 
+        host: "https://1.1.1.1"
+          username: "ansible_user"
+          password: "ansible_password"
+          trust_any_host_https_certs: true
+        data:
+          description: "Updated Device Description"
 
 '''
 #!/usr/bin/python
@@ -174,13 +189,8 @@ def run_module():
         }
         glu_api = GluwareAPIClient(request_payload, api_host)
         glu_device = glu_api._get_device_id(name, org_name)
-        #print(glu_device)
         glu_device_id = glu_device.get('id')
-        
 
-    result = dict(changed=False)
-
-    #glu_device_id = module.params['glu_device_id']
     api_url = urljoin(api_host, '/api/devices/' + glu_device_id)
     
     if not glu_device_id:
@@ -202,6 +212,7 @@ def run_module():
         error_msg = f"Unexpected response from Gluware Control: HTTP {response.status} - {response.reason}"
         module.fail_json(msg=error_msg, changed=False)
 
+    result = dict(changed=True)
     module.exit_json(**result)
 
 def main():

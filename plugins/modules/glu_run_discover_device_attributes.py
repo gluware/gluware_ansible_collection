@@ -3,24 +3,27 @@
 
 # Copyright: (c) 2020, Gluware Inc.
 
-ANSIBLE_METADATA = {'metadata_version': '1.2.0',
+ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
     module: glu_run_discover_device_attributes 
-    short_description: Perform a discover device attributes on a Gluware Device
+    short_description: Perform device discover action on Gluware device to update attributes
     description:
-        - For the current Gluware device trigger a discover device attributes in Gluware Control using the glu_device_id.
+        - Runs device discover action on specified devices in the Ansible playbook.
+        - By default this module will use device_id parameter to find the device in Gluware.
+        - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
     version_added: '2.8'
     author:
         - John Anderson
+        - Oleg Gratwick
     options:
         gluware_control:
             description:
-                - Connection details for the Gluware Control system.
+                - Connection details for the Gluware Control platform.
             type: dict
-            required: false
+            required: True
             suboptions:
                 host:
                     description: Hostname or IP address of the Gluware Control server.
@@ -29,25 +32,25 @@ DOCUMENTATION = '''
                     description: Username for authentication with Gluware Control.
                     type: string
                 password:
-                    description: Password for authentication.
+                    description: Password for authentication with Gluware Control.
                     type: string
                 trust_https_certs:
                     description: Bypass HTTPS certificate verification.
                     type: boolean
         glu_device_id:
             description:
-                - Id in Gluware Control for the device.
+                - ID of the device within Gluware.
                 - The glu_devices inventory plugin automatically supplies this variable.
             type: string
             required: False
         org_name:
             description:
-                - Organization name.
+                - Organization name the device is in within Gluware.
             type: string
             required: False
         name:
             description:
-                - Device name.
+                - Target device name within Gluware Control.
             type: string
             required: False
 '''
@@ -56,10 +59,17 @@ EXAMPLES = r'''
     #
     # Trigger a Gluware Control discover device attributes for the current device
     #
-    - name: Running discover device attributes for the current device
-      glu_run_discover_device_attributes:
-        glu_connection_file : "{{ inventory_file }}"
-        glu_device_id: "{{ glu_device_id }}"
+    - name: Discover device properties
+      gluware_inc.control.glu_run_discover_device_attributes:
+        org_name: "gluware_organization"
+        name: "{{inventory_hostname}}"
+        gluware_control: "{{control}}"
+
+    - name: Discover device properties
+      gluware_inc.control.glu_run_discover_device_attributes:
+        glu_device_id: "340b28a3-72b9-4708-852e-9c7490e2e650"
+        gluware_control: "{{control}}"
+
 
 '''
 
@@ -115,7 +125,6 @@ def run_module():
 
     user_params = module.params.get('gluware_control') or {}
 
-
     # Figure out the Gluware Control connection information.
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
@@ -123,7 +132,6 @@ def run_module():
         'password': user_params.get('password') or os.environ.get('GLU_CONTROL_PASSWORD'),
         'trust_any_host_https_certs': user_params.get('trust_any_host_https_certs') or os.environ.get('GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS'),
     }
-
 
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
@@ -173,10 +181,7 @@ def run_module():
         }
         glu_api = GluwareAPIClient(request_payload, api_host)
         glu_device = glu_api._get_device_id(name, org_name)
-        #print(glu_device)
         glu_device_id = glu_device.get('id')
-
-    result = dict(changed=False)
 
     # This api call is for Gluware Control.
     api_url = urljoin(api_host, '/api/devices/discover')
@@ -200,8 +205,8 @@ def run_module():
         error_msg = f"Unexpected response from Gluware Control: HTTP {response.status} - {response.reason}"
         module.fail_json(msg=error_msg, changed=False)
 
+    result = dict(changed=True)
     module.exit_json(**result)
-
 
 def main():
     run_module()
