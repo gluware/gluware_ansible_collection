@@ -83,11 +83,6 @@ try:
 except ImportError:
     from urllib.parse import urljoin
 
-# Python 2/3 compatibility
-try:
-    from urlparse import urljoin
-except ImportError:
-    from urllib.parse import urljoin
 
 def run_module():
 
@@ -99,7 +94,7 @@ def run_module():
         description=dict(type='str', required=False),
         gluware_control=dict(
             type='dict',
-            required=False,
+            required=True,
             options=dict(
                 host=dict(type='str', required=False),
                 username=dict(type='str', required=False),

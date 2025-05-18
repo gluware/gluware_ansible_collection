@@ -8,10 +8,10 @@ ANSIBLE_METADATA = {'metadata_version': '1.2.0',
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    module: glu_run_discover_device_attributes 
-    short_description: Perform a discover device attributes on a Gluware Device
+    module: glu_audit_config
+    short_description: Perform a audit on the current captured config on a Gluware Device
     description:
-        - For the current Gluware device trigger a discover device attributes in Gluware Control using the glu_device_id.
+        - For the current Gluware device trigger a audit on the current captured config in Gluware Control using the glu_device_id.
     version_added: '2.8'
     author:
         - John Anderson
@@ -50,16 +50,39 @@ DOCUMENTATION = '''
                 - Device name.
             type: string
             required: False
+        description:
+            description:
+                - Audit description.
+            type: string
+            required: True
+        audit_policy:
+            description:
+                - Audit Policy Name.
+            type: string
+            required: True
 '''
 
 EXAMPLES = r'''
     #
-    # Trigger a Gluware Control discover device attributes for the current device
+    # Trigger a Gluware Control audit on the current captured config for the current device.
     #
-    - name: Running discover device attributes for the current device
-      glu_run_discover_device_attributes:
+    - name: Creating a audit on the current captured config for the current device
+      glu_audit_config:
         glu_connection_file : "{{ inventory_file }}"
         glu_device_id: "{{ glu_device_id }}"
+        audit_title: "Checking config for correct NTP Server"
+        audit_policy_name: "Data Center NTP Server Audit"
+
+    #
+    # Trigger a Gluware Control capture config and a audit for the current device.
+    #
+    - name: Capturing the current config then running a audit on that captured config for the current device
+      glu_audit_config:
+        glu_connection_file : "{{ inventory_file }}"
+        glu_device_id: "{{ glu_device_id }}"
+        audit_title: "Checking config for password strength"
+        audit_policy_name: "Data Center Password Strength Audit"
+        run_capture_config: True
 
 '''
 
@@ -78,6 +101,8 @@ try:
 except ImportError:
     from urllib.parse import urljoin
 
+
+
 def run_module():
 
     # Module parameters
@@ -85,6 +110,8 @@ def run_module():
         org_name=dict(type='str', required=False),
         name=dict(type='str', required=False),
         glu_device_id=dict(type='str', required=False),
+        description=dict(type='str', required=True),
+        audit_policy=dict(type='str', required=True),
         gluware_control=dict(
             type='dict',
             required=True,
@@ -97,8 +124,6 @@ def run_module():
         )
     )
 
-    # Initialize the AnsibleModule to use in communication from and to the
-    # code (playbook, etc) interacting with this module.
     module = AnsibleModule(
         argument_spec=module_args,
         required_one_of=[['glu_device_id', 'org_name']],
@@ -107,6 +132,9 @@ def run_module():
     )
     org_name = module.params.get('org_name')
     name = module.params.get('name')
+    audit_policy = module.params.get('audit_policy')
+    description = module.params.get('description')
+
     if module.params.get('glu_device_id'):
         glu_device_id = module.params.get('glu_device_id')
     else:
@@ -116,7 +144,6 @@ def run_module():
     user_params = module.params.get('gluware_control') or {}
 
 
-    # Figure out the Gluware Control connection information.
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
         'username': user_params.get('username') or os.environ.get('GLU_CONTROL_USERNAME'),
@@ -124,27 +151,18 @@ def run_module():
         'trust_any_host_https_certs': user_params.get('trust_any_host_https_certs') or os.environ.get('GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS'),
     }
 
-
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
             module.fail_json(msg=f"Missing required connection parameter: {key}", changed=False)
 
-    # All the required values exist, so use the information in the file for the connection information.
-    api_host = api_dict.get('host')
-
-    # Make sure there is a http or https preference for the api_host
     api_host = api_dict['host']
     if not re.match('(?:http|https)://', api_host):
         api_host = 'https://{host}'.format(host=api_host)
 
-
-    # Make sure the Content-Type is set correctly.. otherwise it defaults to application/x-www-form-urlencoded which
-    # causes a 400 from Gluware Control
     http_headers = {
-        'Content-Type' : 'application/json'
+        'Content-Type': 'application/json'
     }
 
-    # Create the request_handler to make the calls with.
     request_handler = Request(
         url_username=api_dict['username'],
         url_password=api_dict['password'],
@@ -152,10 +170,16 @@ def run_module():
         force_basic_auth=True,
         headers=http_headers
     )
-
     # Default result JSON object
     get_device = True
 
+    request_payload = {
+        "url_username" : api_dict['username'],
+        "url_password": api_dict['password'],
+        "validate_certs" : not api_dict['trust_any_host_https_certs'],
+        "force_basic_auth" : True,
+        "headers" : http_headers
+    }
     if glu_device_id:
         # Only glu_device_id should be used
         if org_name or name:
@@ -164,42 +188,77 @@ def run_module():
         # org_name and name must both be provided
         if not org_name or not name:
             module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
-        request_payload = {
-            "url_username" : api_dict['username'],
-            "url_password": api_dict['password'],
-            "validate_certs" : not api_dict['trust_any_host_https_certs'],
-            "force_basic_auth" : True,
-            "headers" : http_headers
-        }
         glu_api = GluwareAPIClient(request_payload, api_host)
         glu_device = glu_api._get_device_id(name, org_name)
         #print(glu_device)
         glu_device_id = glu_device.get('id')
 
-    result = dict(changed=False)
+    
+    glu_api = GluwareAPIClient(request_payload, api_host)
+    glu_org_id = glu_api._get_org_name(org_name)
+    if not glu_org_id:
+        self.module.fail_json(msg=f"No organization found with name {org_name}")
+    org_id = glu_org_id[0].get('id')
+    # This api call is for Gluware Control.
+    api_url_1 = urljoin(api_host, '/api/audit/policies?orgId='+org_id)
+
+    try:
+        response = request_handler.get(api_url_1)
+    except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
+        error_msg = 'Gluware Control call failed for getting audit policy: {msg}'.format(msg=e2)
+        module.fail_json(msg=error_msg, changed=False)
+
+    # Read in the JSON response to a object.
+    arrayResponse = []
+    try: 
+        readResponse = response.read()
+        arrayResponse = json.loads(readResponse)
+        for resp in arrayResponse:
+            if resp.get('name') == audit_policy:
+                audit_policy_id = resp.get('id')
+    except (ValueError, TypeError) as e:
+        error_msg = 'Gluware Control call getting audit policy response failed to be parsed as JSON: {msg}'.format(msg=e)
+        module.fail_json(msg=error_msg, changed=False)
+
+    if (len(arrayResponse) == 0):
+        error_msg = 'No audit policy was found for the name: "{msg}"'.format(msg=audit_policy)
+        module.fail_json(msg=error_msg, changed=False)
+
+    # if (len(arrayResponse) != 1):
+    #    # error_msg = 'More than one audit policy was found for the name: "{msg}"'.format(msg=audit_policy)
+    #     error_msg = arrayResponse
+    #     module.fail_json(msg=error_msg, changed=False)
+
+    audit_obj = arrayResponse[0]
+
+    if (not audit_policy_id):
+        error_msg = 'No audit policy id was found for the name: "{msg}"'.format(msg=audit_policy)
+        module.fail_json(msg=error_msg, changed=False)
 
     # This api call is for Gluware Control.
-    api_url = urljoin(api_host, '/api/devices/discover')
-    if not glu_device_id:
-        module.fail_json(msg="No Gluware ID found for device", changed=False)
+    api_url_2 = urljoin(api_host, '/api/audit/execute')
+    
     # Create the body of the request.
     api_data = {
-        "devices" : [glu_device_id]
+        "name" : description,
+        "deviceIds" : [glu_device_id],
+        "policyId" : audit_policy_id,
+        "capture" : False
     }
+    print(audit_policy_id)
     http_body = json.dumps(api_data)
 
     # Make the actual api call.
     try:
-        response = request_handler.post(api_url, data=http_body)
+        response = request_handler.post(api_url_2, data=http_body)
     except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
-        error_msg = 'Gluware Control call failed: {msg}'.format(msg=e2)
+        error_msg = 'Gluware Control call failed for executing the audit: {msg}'.format(msg=e2)
         module.fail_json(msg=error_msg, changed=False)
-
-    # Check for 204 No Content response
+    
     if response.status != 204:
         error_msg = f"Unexpected response from Gluware Control: HTTP {response.status} - {response.reason}"
         module.fail_json(msg=error_msg, changed=False)
-
+    result = dict(changed=True)
     module.exit_json(**result)
 
 
