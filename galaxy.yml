@@ -46,7 +46,7 @@ dependencies: {}
 repository: https://github.com/gluware/gluware_ansible_collection
 
 # The URL to any online docs
-documentation: http://docs.example.com
+documentation: https://github.com/gluware/gluware_ansible_collection/blob/main/README.md
 
 # The URL to the homepage of the collection/project
 homepage: https://gluware.com
