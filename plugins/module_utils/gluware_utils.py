@@ -3,10 +3,8 @@
 
 # Copyright: (c) 2020, Gluware Inc.
 import json
-import urllib.request
-import urllib.error
 from urllib.parse import urljoin
-from ansible.module_utils.basic import missing_required_lib
+
 
 HAS_REQUESTS = True
 try:
