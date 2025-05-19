@@ -5,7 +5,7 @@
 
 # Gluware Ansible Inventory Plugin
 
-ANSIBLE_METADATA = {'metadata_version': '1.3.0',
+ANSIBLE_METADATA = {'metadata_version': '1.2.0',
                     'status': ['released'],
                     'supported_by': 'Gluware Inc'}
 
@@ -139,7 +139,6 @@ EXAMPLES = r'''
     trust_any_host_https_certs: True
     groups:
         front_devices: "'Front' in Area"
-    
     #Advanced example for composition
     plugin: glu_devices
     host: 'https://10.0.0.1'
@@ -171,11 +170,15 @@ EXAMPLES = r'''
         glu_props_licenses : discoveredLicenses
 
 '''
-
+from urllib.request import Request as URLRequest, build_opener, HTTPBasicAuthHandler, HTTPSHandler
+from urllib.error import URLError
 import os
 import re
 import json
 import pprint
+
+import requests
+from requests.auth import HTTPBasicAuth
 
 from ansible.module_utils.urls import Request
 import urllib.error as urllib_error
@@ -258,6 +261,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
     option_groups = self.get_option('groups')
     option_keyed_groups = self.get_option('keyed_groups')
 
+
     for device_obj in api_devices:
         device_name = device_obj.get('name')
         # Set the glu_device_id to work with the gluware ansible modules.
@@ -268,11 +272,15 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         #   If that is not found the try to use the ansible_network_os on the device.
         network_OS = ''
         discoveredOS = device_obj.get('discoveredOs')
+
         if discoveredOS: network_OS = DiscoveredOSToAnsibleNetworkOS.get(discoveredOS)
         if not network_OS:
             network_OS = device_obj.get('ansible_network_os')
         if not network_OS:
+
             network_OS = discoveredOS
+
+
     
         # In case the ansible connection is overridden.
         ansible_connection = device_obj.get('ansible_connection')
@@ -293,6 +301,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                 # Special logic if password and enable password is not available.
                 if not connect_password: connect_password = device_obj.get('x_word')
                 if not connect_enable_password: connect_enable_password = device_obj.get('x_e_word')
+
+
 
                 # Check that that the device is not already added by some other inventory plugin.
                 if not self.inventory.get_host(device_name):
@@ -389,15 +399,23 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
     if (not api_trust_https):
         api_trust_https = os.environ.get('GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS')
 
-    requestHandler = Request(url_username=api_user, 
-                            url_password=api_password, 
-                            validate_certs=not(api_trust_https), 
-                            force_basic_auth=True)
-
-    # Make the API Call for the data for the inventory.
-    api_devices = self._api_call(requestHandler, apiURL_1, apiURL_2)
-
+    api_devices = None
+    try:
+        with make_authenticated_request(apiURL_1, api_user, api_password, not api_trust_https, timeout=30) as response:
+            api_devices = json.loads(response.text)
+    except URLError:
+        with make_authenticated_request(apiURL_2, api_user, api_password, not api_trust_https, timeout=30) as response:
+            api_devices = json.loads(response.read())
     # Process the API data into the inventory object.
     self._updateInventoryObj(api_devices)
 
 
+def make_authenticated_request(url, user, password, validate_certs=True, timeout=30):
+    response = requests.get(
+        url,
+        auth=HTTPBasicAuth(user, password),
+        verify=validate_certs,
+        timeout=timeout
+    )
+    response.raise_for_status()
+    return response
