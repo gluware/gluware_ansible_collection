@@ -175,18 +175,13 @@ from urllib.error import URLError
 import os
 import re
 import json
-import pprint
-
 import requests
 from requests.auth import HTTPBasicAuth
-
-from ansible.module_utils.urls import Request
 import urllib.error as urllib_error
 import socket
 import http.client as httplib
-from urllib.error import URLError
-from ansible.errors import AnsibleError, AnsibleParserError
-from ansible.module_utils._text import to_native, to_text
+from ansible.errors import AnsibleError
+from ansible.module_utils._text import to_native
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
 
 # Python 2/3 Compatibility
