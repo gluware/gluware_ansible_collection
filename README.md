@@ -19,7 +19,7 @@ pip install ansible
 Before using this collection, you need to install it with the Ansible Galaxy command-line tool:
 
 ```
-ansible-galaxy collection install gluware.control
+ansible-galaxy collection install gluware_inc.control
 ```
 
 See using [Ansible collections](https://docs.ansible.com/ansible/latest/user_guide/collections_using.html#installing-collections) for more details.
