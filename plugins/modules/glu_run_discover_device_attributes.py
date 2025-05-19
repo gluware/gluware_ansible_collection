@@ -21,7 +21,7 @@ DOCUMENTATION = '''
     options:
         gluware_control:
             description:
-                - Connection details for the Gluware Control platform.
+            - Connection details for the Gluware Control platform.
             type: dict
             required: True
             suboptions:
@@ -45,12 +45,12 @@ DOCUMENTATION = '''
             required: False
         org_name:
             description:
-                - Organization name the device is in within Gluware.
+            - Organization name the device is in within Gluware.
             type: string
             required: False
         name:
             description:
-                - Target device name within Gluware Control.
+            - Target device name within Gluware Control.
             type: string
             required: False
 '''

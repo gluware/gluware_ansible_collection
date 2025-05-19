@@ -11,18 +11,17 @@ DOCUMENTATION = '''
     module: glu_audit_config
     short_description: Perform a audit on the current captured config on a Gluware Device
     description:
-        - For the current Gluware device trigger a audit on the current captured config in Gluware Control.
-        - By default this module will use device_id parameter to find the device in Gluware.
-        - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
-        Note: If an error of 'HTTP Error 400: Bad Request' is displayed then possibly the playbook task is trying to set a
+    - For the current Gluware device trigger a audit on the current captured config in Gluware Control.
+    - By default this module will use device_id parameter to find the device in Gluware.
+    - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
     version_added: '2.8'
     author:
-        - John Anderson
-        - Oleg Gratwick
+    - John Anderson
+    - Oleg Gratwick
     options:
         gluware_control:
             description:
-                - Connection details for the Gluware Control platform.
+            - Connection details for the Gluware Control platform.
             type: dict
             required: True
             suboptions:
@@ -40,28 +39,28 @@ DOCUMENTATION = '''
                     type: boolean
         glu_device_id:
             description:
-                - ID of the device within Gluware.
-                - The glu_devices inventory plugin automatically supplies this variable.
+            - ID of the device within Gluware.
+            - The glu_devices inventory plugin automatically supplies this variable.
             type: string
             required: False
         org_name:
             description:
-                - Organization name the device is in within Gluware.
+            - Organization name the device is in within Gluware.
             type: string
             required: False
         name:
             description:
-                - Target device name within Gluware Control.
+            - Target device name within Gluware Control.
             type: string
             required: False
         description:
             description:
-                - Description for the instance of this audit execution.
+            - Description for the instance of this audit execution.
             type: string
             required: True
         audit_policy:
             description:
-                - Audit Policy Name as displayed in Gluware Config Drift & Audit.
+            - Audit Policy Name as displayed in Gluware Config Drift & Audit.
             type: string
             required: True
 '''

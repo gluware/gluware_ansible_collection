@@ -11,11 +11,10 @@ DOCUMENTATION = '''
     module: glu_update_device_attributes
     short_description: Update device attributes on a Gluware Device within Gluware Control
     description:
-        - Updates the Gluware device with a specified attribute values in Gluware Control.  
-        - By default this module will use device_id parameter to find the device in Gluware.
-        - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
-        Note: If an error of 'HTTP Error 400: Bad Request' is displayed then possibly the playbook task is trying to set a
-        read only attribute or a non existent attribute.
+    - Updates the Gluware device with specified attribute values in Gluware Control.
+    - By default, this module uses the device_id parameter to find the device in Gluware.
+    - You may instead specify the device's friendly name and organization name instead of a device_id.
+    - "Note: If you see 'HTTP Error 400: Bad Request', the playbook task may be trying to set a read-only or non-existent attribute."
     version_added: '2.8'
     author:
         - John Anderson
