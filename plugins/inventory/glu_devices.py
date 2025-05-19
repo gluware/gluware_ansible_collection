@@ -62,16 +62,16 @@ DOCUMENTATION = '''
             description: 
                 - Add a host variable from Jinja2 expressions.
                 - The keys of the dictionary are the host variables.
-                - The values of the dictionary are Jinja 2 exzpresions.
-                - The Jinja 2 expressions can use Gluware Control device attributes (including custom attributes).
+                - The values of the dictionary are Jinja2 exzpresions.
+                - The Jinja2 expressions can use Gluware Control device attributes (including custom attributes).
             type: dict
             required: False
         groups:
             description: 
                 - Define groups for a host based on Jinja2 conditionals.
                 - The keys of the dictionary are the groups.
-                - The values of the dictionary are Jinja 2 conditionals where a truthful condition causes current host be in the group specified in the key.
-                - The Jinja 2 conditionals can use Gluware Control device attributes (including custom attributes).
+                - The values of the dictionary are Jinja2 conditionals where a truthful condition causes current host be in the group specified in the key.
+                - The Jinja2 conditionals can use Gluware Control device attributes (including custom attributes).
             type: dict
             required: False
         keyed_groups:
@@ -82,7 +82,7 @@ DOCUMENTATION = '''
                 - (prefix) a optional text to prefix the value of the (key) expression. The default is a empty string.
                 - (separator) a optional text to separate the (prefix) and (key) expression. The default is a underscore '_'.
                 - (parent_group) a optional text to specify the parent group for this group.
-                - The Jinja 2 expressions can use Gluware Control device attributes (including custom attributes).
+                - The Jinja2 expressions can use Gluware Control device attributes (including custom attributes).
             type: list
             required: False
         variable_map:
