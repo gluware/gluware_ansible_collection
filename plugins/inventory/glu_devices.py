@@ -15,7 +15,9 @@ DOCUMENTATION = '''
     short_description: Gluware Control Inventory Source
     description:
         - Get inventory from Device Manager in Gluware Control.
-        - Uses a YAML configuration file that ends with C(.yml/.yaml) for the host of the Gluware Control system and the userName and password to that Gluware Control system.
+        - Uses a YAML configuration file that ends with C(.yml/.yaml) for the connection information of the Gluware Control system.
+        - This plugin is able to gather credentials that are set for devices within Gluware. If this is desired behavior, ensure the user you are using to authenticate to Gluware has System Developer role with Superuser Privileges.
+        - It is recommended to create a specific user that has access to only the target Gluware organization when using the inventory plugin to avoid having groups with devices from separate organizations.
         - If there are any Gluware Control custom attributes with values on the devices that start with 'ansible_var_' then those variables will be added to the host (minus the 'ansible_var_' part).
         - If there is a Gluware Control custom field of 'ansible_connection' on the device then that will be the connection for that host.  Otherwise 'network_cli' will be the connection.
         - If there is a Gluware Control custom field of 'ansible_network_os' on the device then that will be the 'ansible_network_os' for that hose.  Otherwise 'discoveredOs' (if available) will be the 'ansible_network_os' for that host.
