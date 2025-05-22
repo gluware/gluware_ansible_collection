@@ -1,7 +1,10 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2020, Gluware Inc.
+
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
+
 import json
 from urllib.parse import urljoin
 
@@ -59,7 +62,7 @@ class GluwareAPIClient:
                 if device.get('name') == name:
                     found = True
                     return device
-            if found == False:
+            if found is False:
                 for device in devices:
                     if device.get('discoveredHostname') == name:
                         found = True

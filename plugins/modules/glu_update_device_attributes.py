@@ -86,8 +86,8 @@ EXAMPLES = r'''
       gluware_inc.control.glu_update_device_attributes:
         org_name: "gluware_organization"
         name: "device_01"
-        gluware_control: 
-        host: "https://1.1.1.1"
+        gluware_control:
+          host: "https://1.1.1.1"
           username: "ansible_user"
           password: "ansible_password"
           trust_any_host_https_certs: true
@@ -95,11 +95,6 @@ EXAMPLES = r'''
           description: "Updated Device Description"
 
 '''
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
-# Copyright: (c) 2020, Gluware Inc.
-
 
 try:
     from urlparse import urljoin

@@ -2,19 +2,10 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2020, Gluware Inc.
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
 
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
-import os
-import json
-import re
-import urllib.error as urllib_error
-import http.client as httplib
-import socket
-from ansible.module_utils.urls import Request
-from ansible.module_utils.basic import AnsibleModule
-ANSIBLE_METADATA = {'metadata_version': '1.1.0',
-                    'status': ['stableinterface'],
-                    'supported_by': 'Gluware Inc'}
+from __future__ import annotations
 
 DOCUMENTATION = '''
     module: glu_audit_config
@@ -22,11 +13,10 @@ DOCUMENTATION = '''
     description:
     - For the current Gluware device trigger a audit on the current captured config in Gluware Control.
     - By default this module will use device_id parameter to find the device in Gluware.
-    - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
-    version_added: '2.8'
+    - Module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.
     author:
-    - John Anderson
-    - Oleg Gratwick
+    - John Anderson (@gluware-inc)
+    - Oleg Gratwick (@ogratwick)
     options:
         gluware_control:
             description:
@@ -36,41 +26,41 @@ DOCUMENTATION = '''
             suboptions:
                 host:
                     description: Hostname or IP address of the Gluware Control server.
-                    type: string
+                    type: str
                 username:
                     description: Username for authentication with Gluware Control.
-                    type: string
+                    type: str
                 password:
                     description: Password for authentication with Gluware Control.
-                    type: string
+                    type: str
                 trust_https_certs:
                     description: Bypass HTTPS certificate verification.
-                    type: boolean
+                    type: bool
         glu_device_id:
             description:
             - ID of the device within Gluware.
             - The glu_devices inventory plugin automatically supplies this variable.
-            type: string
+            type: str
             required: False
         org_name:
             description:
             - Organization name the device is in within Gluware.
-            type: string
+            type: str
             required: False
         name:
             description:
             - Target device name within Gluware Control.
-            type: string
+            type: str
             required: False
         description:
             description:
             - Description for the instance of this audit execution.
-            type: string
+            type: str
             required: True
         audit_policy:
             description:
             - Audit Policy Name as displayed in Gluware Config Drift & Audit.
-            type: string
+            type: str
             required: True
 '''
 
@@ -87,6 +77,16 @@ EXAMPLES = r'''
 
 
 '''
+
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+import os
+import json
+import re
+import urllib.error as urllib_error
+import http.client as httplib
+import socket
+from ansible.module_utils.urls import Request
+from ansible.module_utils.basic import AnsibleModule
 
 
 try:
@@ -110,7 +110,7 @@ def run_module():
             options=dict(
                 host=dict(type='str', required=False),
                 username=dict(type='str', required=False),
-                password=dict(type='str', required=False),
+                password=dict(type='str', required=False, no_log=True),
                 trust_any_host_https_certs=dict(
                     type='bool', required=False, default=False)
             )
@@ -192,7 +192,7 @@ def run_module():
         module.fail_json(msg=f"No organization found with name {org_name}")
     org_id = glu_org_id[0].get('id')
     # This api call is for Gluware Control.
-    api_url_1 = urljoin(api_host, '/api/audit/policies?orgId='+org_id)
+    api_url_1 = urljoin(api_host, '/api/audit/policies?orgId=' + org_id)
 
     try:
         response = request_handler.get(api_url_1)
@@ -234,7 +234,6 @@ def run_module():
         "policyId": audit_policy_id,
         "capture": False
     }
-    print(audit_policy_id)
     http_body = json.dumps(api_data)
 
     # Make the actual api call.
