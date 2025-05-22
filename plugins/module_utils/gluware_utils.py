@@ -44,7 +44,23 @@ class GluwareAPIClient:
             return response.json()
         except requests.RequestException as err:
             raise Exception(f"GET request to {url} failed: {err}")
-
+    def gluware_common_params():
+        return dict(
+            org_name=dict(type='str', required=False),
+            name=dict(type='str', required=False),
+            glu_device_id=dict(type='str', required=False),
+            gluware_control=dict(
+                type='dict',
+                required=True,
+                options=dict(
+                    host=dict(type='str', required=False),
+                    username=dict(type='str', required=False),
+                    password=dict(type='str', required=False),
+                    trust_any_host_https_certs=dict(
+                        type='bool', required=False, default=False)
+                )
+            )
+        )
     def _get_device_id(self, name, org_name):
         org_list = self._get_org_name(org_name)
         if not org_list:

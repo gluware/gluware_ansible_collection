@@ -10,63 +10,47 @@ import re
 import urllib.error as urllib_error
 import http.client as httplib
 import socket
-from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
-# Add this line to pull in the doc fragment
-from ansible.module_utils.common.text.converters import to_native
 from ansible.module_utils.urls import Request
-# Add this line to pull in the doc fragment
+from ansible.module_utils.basic import AnsibleModule
 ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    module: glu_update_device_attributes
-    short_description: Update device attributes on a Gluware Device within Gluware Control
+    module: glu_run_discover_device_attributes 
+    short_description: Perform device discover action on Gluware device to update attributes
     description:
-    - Updates the Gluware device with specified attribute values in Gluware Control.
-    - By default, this module uses the device_id parameter to find the device in Gluware.
-    - You may instead specify the device's friendly name and organization name instead of a device_id.
-    - "Note: If you see 'HTTP Error 400: Bad Request', the playbook task may be trying to set a read-only or non-existent attribute."
+        - Runs device discover action on specified devices in the Ansible playbook.
+        - By default this module will use device_id parameter to find the device in Gluware.
+        - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
     version_added: '2.8'
     author:
     - John Anderson (@gluware-inc)
     - Oleg Gratwick (@ogratwick-gluware)
     options:
-        data:
-            description:
-                - Key/Value pairs to update for the target device.
-            type: dict
-            required: True
     extends_documentation_fragment:
     - gluware_inc.control.gluware_control
+
 '''
 
 EXAMPLES = r'''
     #
-    # Update Gluware Control attribute (including custom attributes) values for the current device
+    # Trigger a Gluware Control discover device attributes for the current device
     #
-    - name: Update the custom attribute playbook_date with the current date in Gluware Control
-      gluware_inc.control.glu_update_device_attributes:
+    - name: Discover device properties
+      gluware_inc.control.glu_run_discover_device_attributes:
         org_name: "gluware_organization"
         name: "{{inventory_hostname}}"
         gluware_control: "{{control}}"
-        data:
-          playbook_date: "{{ lookup('pipe','date +%Y-%m-%d-%H-%M-%S') }}"
 
-    - name: Update the custom attribute playbook_date with the current date in Gluware Control
-      gluware_inc.control.glu_update_device_attributes:
-        org_name: "gluware_organization"
-        name: "device_01"
-        gluware_control:
-          host: "https://1.1.1.1"
-          username: "ansible_user"
-          password: "ansible_password"
-          trust_any_host_https_certs: true
-        data:
-          description: "Updated Device Description"
+    - name: Discover device properties
+      gluware_inc.control.glu_run_discover_device_attributes:
+        glu_device_id: "340b28a3-72b9-4708-852e-9c7490e2e650"
+        gluware_control: "{{control}}"
+
 
 '''
+
 
 try:
     from urlparse import urljoin
@@ -75,24 +59,12 @@ except ImportError:
 
 
 def run_module():
-    module_args = dict(
-        org_name=dict(type='str', required=False),
-        name=dict(type='str', required=False),
-        glu_device_id=dict(type='str', required=False),
-        data=dict(type='dict', required=True),
-        gluware_control=dict(
-            type='dict',
-            required=True,
-            options=dict(
-                host=dict(type='str', required=False),
-                username=dict(type='str', required=False),
-                password=dict(type='str', required=False),
-                trust_any_host_https_certs=dict(
-                    type='bool', required=False, default=False)
-            )
-        )
-    )
 
+    # Module parameters
+    module_args = GluwareAPIClient.gluware_common_params()
+
+    # Initialize the AnsibleModule to use in communication from and to the
+    # code (playbook, etc) interacting with this module.
     module = AnsibleModule(
         argument_spec=module_args,
         required_one_of=[['glu_device_id', 'org_name']],
@@ -109,6 +81,7 @@ def run_module():
 
     user_params = module.params.get('gluware_control') or {}
 
+    # Figure out the Gluware Control connection information.
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
         'username': user_params.get('username') or os.environ.get('GLU_CONTROL_USERNAME'),
@@ -121,14 +94,21 @@ def run_module():
             module.fail_json(
                 msg=f"Missing required connection parameter: {key}", changed=False)
 
+    # All the required values exist, so use the information in the file for the connection information.
+    api_host = api_dict.get('host')
+
+    # Make sure there is a http or https preference for the api_host
     api_host = api_dict['host']
     if not re.match('(?:http|https)://', api_host):
         api_host = 'https://{host}'.format(host=api_host)
 
+    # Make sure the Content-Type is set correctly.. otherwise it defaults to application/x-www-form-urlencoded which
+    # causes a 400 from Gluware Control
     http_headers = {
         'Content-Type': 'application/json'
     }
 
+    # Create the request_handler to make the calls with.
     request_handler = Request(
         url_username=api_dict['username'],
         url_password=api_dict['password'],
@@ -137,6 +117,7 @@ def run_module():
         headers=http_headers
     )
 
+    # Default result JSON object
     get_device = True
 
     if glu_device_id:
@@ -160,24 +141,25 @@ def run_module():
         glu_device = glu_api._get_device_id(name, org_name)
         glu_device_id = glu_device.get('id')
 
-    api_url = urljoin(api_host, '/api/devices/' + glu_device_id)
-
+    # This api call is for Gluware Control.
+    api_url = urljoin(api_host, '/api/devices/discover')
     if not glu_device_id:
         module.fail_json(msg="No Gluware ID found for device", changed=False)
-
-    api_data = module.params['data']
-
+    # Create the body of the request.
+    api_data = {
+        "devices": [glu_device_id]
+    }
     http_body = json.dumps(api_data)
 
+    # Make the actual api call.
     try:
-        response = request_handler.put(api_url, data=http_body)
-    except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e:
-        error_msg = f'Gluware Control call failed: {str(e)}'
-        if 'Bad Request' in error_msg:
-            error_msg = 'Invalid attribute(s) or values for the device. Data provided: ' + http_body
+        response = request_handler.post(api_url, data=http_body)
+    except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
+        error_msg = 'Gluware Control call failed: {msg}'.format(msg=e2)
         module.fail_json(msg=error_msg, changed=False)
 
-    if response.status != 200:
+    # Check for 204 No Content response
+    if response.status != 204:
         error_msg = f"Unexpected response from Gluware Control: HTTP {response.status} - {response.reason}"
         module.fail_json(msg=error_msg, changed=False)
 
