@@ -39,7 +39,7 @@ DOCUMENTATION = '''
             type: dict
             required: True
     extends_documentation_fragment:
-    - gluware_inc.conctrol.gluware_control
+    - gluware_inc.control.gluware_control
 '''
 
 EXAMPLES = r'''

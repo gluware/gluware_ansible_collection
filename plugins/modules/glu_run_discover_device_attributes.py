@@ -29,7 +29,7 @@ DOCUMENTATION = '''
     - Oleg Gratwick (@ogratwick-gluware)
     options:
     extends_documentation_fragment:
-    - gluware_inc.conctrol.gluware_control
+    - gluware_inc.control.gluware_control
 
 '''
 
