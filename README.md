@@ -6,6 +6,8 @@ The Gluware Ansible collection provides modules and plugins for Ansible playbook
 ## Requirements
 
 - Python 3.12+
+- Python Modules
+    - requests
 - Ansible 2.15+
 
 ## Installation
