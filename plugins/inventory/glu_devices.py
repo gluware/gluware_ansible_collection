@@ -188,7 +188,6 @@ import http.client as httplib
 import socket
 import urllib.error as urllib_error
 from requests.auth import HTTPBasicAuth
-import requests
 import json
 import re
 import os
@@ -200,7 +199,12 @@ try:
     from urlparse import urljoin
 except ImportError:
     from urllib.parse import urljoin
-
+HAS_REQUESTS = True
+try:
+    import requests
+    from requests.auth import HTTPBasicAuth
+except ImportError:
+    HAS_REQUESTS = False
 # Mapping between the discoveredOs variable and ansible_network_os
 DiscoveredOSToAnsibleNetworkOS = {
     'NX-OS': 'cisco.nxos.nxos',
@@ -224,6 +228,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         super(InventoryModule, self).__init__()
 
         self.group_prefix = 'glu_'
+        if not HAS_REQUESTS:
+            module.fail_json(msg='requests module is not installed. Please install module to continue.)
 
     @staticmethod
     def _convert_group_name(group_name):
