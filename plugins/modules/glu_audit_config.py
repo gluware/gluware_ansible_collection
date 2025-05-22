@@ -64,25 +64,11 @@ except ImportError:
 
 
 def run_module():
-
+    module_args = GluwareAPIClient.gluware_common_params()
     # Module parameters
-    module_args = dict(
-        org_name=dict(type='str', required=False),
-        name=dict(type='str', required=False),
-        glu_device_id=dict(type='str', required=False),
+    module_args.update(
         description=dict(type='str', required=True),
-        audit_policy=dict(type='str', required=True),
-        gluware_control=dict(
-            type='dict',
-            required=True,
-            options=dict(
-                host=dict(type='str', required=False),
-                username=dict(type='str', required=False),
-                password=dict(type='str', required=False),
-                trust_any_host_https_certs=dict(
-                    type='bool', required=False, default=False)
-            )
-        )
+        audit_policy=dict(type='str', required=True)
     )
 
     module = AnsibleModule(

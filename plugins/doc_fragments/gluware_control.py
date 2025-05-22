@@ -8,7 +8,7 @@ __metaclass__ = type
 
 
 class ModuleDocFragment(object):
-  `
+  
   DOCUMENTATION = '''
   ---
   module: glu_capture_config
@@ -45,4 +45,4 @@ class ModuleDocFragment(object):
         - Name to associate snapshot with.
       type: str
       required: False
-  '''`
+  '''

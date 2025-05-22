@@ -67,7 +67,7 @@ def run_module():
 
     # Module parameters
     module_args = GluwareAPIClient.gluware_common_params()
-
+    module_args.update(data=dict(type='dict', required=True))
     # Initialize the AnsibleModule to use in communication from and to the
     # code (playbook, etc) interacting with this module.
     module = AnsibleModule(
