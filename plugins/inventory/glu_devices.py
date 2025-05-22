@@ -229,7 +229,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
         self.group_prefix = 'glu_'
         if not HAS_REQUESTS:
-            module.fail_json(msg='requests module is not installed. Please install module to continue.)
+            module.fail_json(msg='requests module is not installed. Please install module to continue.')
 
     @staticmethod
     def _convert_group_name(group_name):
