@@ -3,6 +3,15 @@
 
 # Copyright: (c) 2020, Gluware Inc.
 
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+import os
+import json
+import re
+import urllib.error as urllib_error
+import http.client as httplib
+import socket
+from ansible.module_utils.urls import Request
+from ansible.module_utils.basic import AnsibleModule
 ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
@@ -91,15 +100,6 @@ EXAMPLES = r'''
 
 # Copyright: (c) 2020, Gluware Inc.
 
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import Request
-import socket
-import http.client as httplib
-import urllib.error as urllib_error
-import re
-import json
-import os
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
 
 try:
     from urlparse import urljoin
@@ -120,7 +120,8 @@ def run_module():
                 host=dict(type='str', required=False),
                 username=dict(type='str', required=False),
                 password=dict(type='str', required=False),
-                trust_any_host_https_certs=dict(type='bool', required=False, default=False)
+                trust_any_host_https_certs=dict(
+                    type='bool', required=False, default=False)
             )
         )
     )
@@ -141,7 +142,6 @@ def run_module():
 
     user_params = module.params.get('gluware_control') or {}
 
-
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
         'username': user_params.get('username') or os.environ.get('GLU_CONTROL_USERNAME'),
@@ -151,7 +151,8 @@ def run_module():
 
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
-            module.fail_json(msg=f"Missing required connection parameter: {key}", changed=False)
+            module.fail_json(
+                msg=f"Missing required connection parameter: {key}", changed=False)
 
     api_host = api_dict['host']
     if not re.match('(?:http|https)://', api_host):
@@ -174,24 +175,26 @@ def run_module():
     if glu_device_id:
         # Only glu_device_id should be used
         if org_name or name:
-            module.warning_json(msg="When 'glu_device_id' is specified, 'org_name' and 'name' must not be set. Only using glu_device_id")
+            module.warning_json(
+                msg="When 'glu_device_id' is specified, 'org_name' and 'name' must not be set. Only using glu_device_id")
     else:
         # org_name and name must both be provided
         if not org_name or not name:
-            module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
+            module.fail_json(
+                msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
         request_payload = {
-            "url_username" : api_dict['username'],
+            "url_username": api_dict['username'],
             "url_password": api_dict['password'],
-            "validate_certs" : not api_dict['trust_any_host_https_certs'],
-            "force_basic_auth" : True,
-            "headers" : http_headers
+            "validate_certs": not api_dict['trust_any_host_https_certs'],
+            "force_basic_auth": True,
+            "headers": http_headers
         }
         glu_api = GluwareAPIClient(request_payload, api_host)
         glu_device = glu_api._get_device_id(name, org_name)
         glu_device_id = glu_device.get('id')
 
     api_url = urljoin(api_host, '/api/devices/' + glu_device_id)
-    
+
     if not glu_device_id:
         module.fail_json(msg="No Gluware ID found for device", changed=False)
 
@@ -214,10 +217,10 @@ def run_module():
     result = dict(changed=True)
     module.exit_json(**result)
 
+
 def main():
     run_module()
 
+
 if __name__ == '__main__':
     main()
-
-

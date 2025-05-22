@@ -5,6 +5,19 @@
 
 # Gluware Ansible Inventory Plugin
 
+from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
+from ansible.module_utils._text import to_native
+from ansible.errors import AnsibleError
+import http.client as httplib
+import socket
+import urllib.error as urllib_error
+from requests.auth import HTTPBasicAuth
+import requests
+import json
+import re
+import os
+from urllib.error import URLError
+from urllib.request import Request as URLRequest, build_opener, HTTPBasicAuthHandler, HTTPSHandler
 ANSIBLE_METADATA = {'metadata_version': '1.2.0',
                     'status': ['released'],
                     'supported_by': 'Gluware Inc'}
@@ -172,19 +185,6 @@ EXAMPLES = r'''
         glu_props_licenses : discoveredLicenses
 
 '''
-from urllib.request import Request as URLRequest, build_opener, HTTPBasicAuthHandler, HTTPSHandler
-from urllib.error import URLError
-import os
-import re
-import json
-import requests
-from requests.auth import HTTPBasicAuth
-import urllib.error as urllib_error
-import socket
-import http.client as httplib
-from ansible.errors import AnsibleError
-from ansible.module_utils._text import to_native
-from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
 
 # Python 2/3 Compatibility
 try:
@@ -192,219 +192,238 @@ try:
 except ImportError:
     from urllib.parse import urljoin
 
-# Mapping between the discoveredOs variable and ansible_network_os    
+# Mapping between the discoveredOs variable and ansible_network_os
 DiscoveredOSToAnsibleNetworkOS = {
-    'NX-OS' : 'cisco.nxos.nxos',
-    'IOS/IOS XE' : 'cisco.ios.ios',
-    'Junos OS' : 'junipernetworks.junos.junos',
-    'ArubaOS' : 'arubanetworks.aoscx.aoscx',
-    'PAN-OS' : 'fortinet.fortios.fortios',
-    'ArubaOS-CX' : 'arubanetworks.aoscx.aoscx',
-    'EOS' : 'arista.eos.eos',
-    'ExtremeXOS' : 'extreme.exos.exos',
-    'ASA' : 'cisco.asa.asa',
-    'AireOS' : 'cisco.aireos.aireos'
-}  
-  
+    'NX-OS': 'cisco.nxos.nxos',
+    'IOS/IOS XE': 'cisco.ios.ios',
+    'Junos OS': 'junipernetworks.junos.junos',
+    'ArubaOS': 'arubanetworks.aoscx.aoscx',
+    'PAN-OS': 'fortinet.fortios.fortios',
+    'ArubaOS-CX': 'arubanetworks.aoscx.aoscx',
+    'EOS': 'arista.eos.eos',
+    'ExtremeXOS': 'extreme.exos.exos',
+    'ASA': 'cisco.asa.asa',
+    'AireOS': 'cisco.aireos.aireos'
+}
+
+
 class InventoryModule(BaseInventoryPlugin, Constructable):
-  NAME = "gluware_inc.control.glu_devices"
-  INVENTORY_FILE_SUFFIXES = ("glu_devices.yml")
-  def __init__(self):
-      super(InventoryModule, self).__init__()
+    NAME = "gluware_inc.control.glu_devices"
+    INVENTORY_FILE_SUFFIXES = "glu_devices.yml"
 
-      self.group_prefix = 'glu_'
+    def __init__(self):
+        super(InventoryModule, self).__init__()
 
+        self.group_prefix = 'glu_'
 
-  @staticmethod  
-  def _convertGroupName(group_name):
-      '''
-        Convert group names to valid characters that can be a directory on a file system.
-      '''
-      group_name = re.sub('[^a-zA-Z0-9]', '_', group_name)
-      return group_name
+    @staticmethod
+    def _convert_group_name(group_name):
+        '''
+          Convert group names to valid characters that can be a directory on a file system.
+        '''
+        group_name = re.sub('[^a-zA-Z0-9]', '_', group_name)
+        return group_name
 
-  def _api_call(self, requestHandler, api_url, api_url_2):
-    '''
-        Make the api call for the api_url with the requestHandler and on success return object with data.
-        If api_url fails then try api_url_2.
-    '''
-    # Make the actual api call.
-    try:
-        response = requestHandler.get(api_url)
-    except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError):
-        # If the first call returns a URL error then try this second call.
+    def _api_call(self, request_handler, api_url, api_url_2):
+        '''
+            Make the api call for the api_url with the request_handler and on success return object with data.
+            If api_url fails then try api_url_2.
+        '''
+        # Make the actual api call.
         try:
-            response = requestHandler.get(api_url_2)
-        except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
-            errorMsg = 'Gluware Control call2 failed: {msg}'.format(msg=e2)
-            raise AnsibleError(to_native(errorMsg))
-    
-    # Read in the JSON response to a object.
-    try: 
-        readResponse = response.read()
-        objResponse = json.loads(readResponse)
-        return objResponse
-    except (ValueError, TypeError) as e:
-        errorMsg = 'Gluware Control call response failed to be parsed as JSON: {msg}'.format(msg=e)
-        raise AnsibleError(to_native(errorMsg))
+            response = request_handler.get(api_url)
+        except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError):
+            # If the first call returns a URL error then try this second call.
+            try:
+                response = request_handler.get(api_url_2)
+            except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
+                error_msg = 'Gluware Control call2 failed: {msg}'.format(msg=e2)
+                raise AnsibleError(to_native(error_msg))
 
-  def _updateInventoryObj(self, api_devices):
-    '''
-        Take the api_devices object and update the self.inventory object
-    '''
-    # pprint.pprint(api_devices)
+        # Read in the JSON response to a object.
+        try:
+            read_response = response.read()
+            obj_response = json.loads(read_response)
+            return obj_response
+        except (ValueError, TypeError) as e:
+            error_msg = 'Gluware Control call response failed to be parsed as JSON: {msg}'.format(
+                msg=e)
+            raise AnsibleError(to_native(error_msg))
 
-    option_compose = self.get_option('compose')
-    option_groups = self.get_option('groups')
-    option_keyed_groups = self.get_option('keyed_groups')
+    def _update_inventory_obj(self, api_devices):
+        '''
+            Take the api_devices object and update the self.inventory object
+        '''
+        # pprint.pprint(api_devices)
 
+        option_compose = self.get_option('compose')
+        option_groups = self.get_option('groups')
+        option_keyed_groups = self.get_option('keyed_groups')
 
-    for device_obj in api_devices:
-        device_name = device_obj.get('name')
-        # Set the glu_device_id to work with the gluware ansible modules.
-        glu_device_id = device_obj.get('id')
+        for device_obj in api_devices:
+            device_name = device_obj.get('name')
+            # Set the glu_device_id to work with the gluware ansible modules.
+            glu_device_id = device_obj.get('id')
 
+            # Try to used the discoveredOs from the device.
+            #   If that is not found the try to use the ansible_network_os on the device.
+            network_os = ''
+            discovered_os = device_obj.get('discoveredOs')
 
-        # Try to used the discoveredOs from the device. 
-        #   If that is not found the try to use the ansible_network_os on the device.
-        network_OS = ''
-        discoveredOS = device_obj.get('discoveredOs')
+            if discovered_os:
+                network_os = DiscoveredOSToAnsibleNetworkOS.get(discovered_os)
+            if not network_os:
+                network_os = device_obj.get('ansible_network_os')
+            if not network_os:
 
-        if discoveredOS: network_OS = DiscoveredOSToAnsibleNetworkOS.get(discoveredOS)
-        if not network_OS:
-            network_OS = device_obj.get('ansible_network_os')
-        if not network_OS:
+                network_os = discovered_os
 
-            network_OS = discoveredOS
+            # In case the ansible connection is overridden.
+            ansible_connection = device_obj.get('ansible_connection')
+            if device_name:
+                connection_info_obj = device_obj.get('connectionInformation')
+                if connection_info_obj:
+                    connect_ip = connection_info_obj.get('ip')
+                    connect_port = connection_info_obj.get('port')
+                    connect_info = connection_info_obj.get('credentials')
+                    if connect_info:
+                        connect_username = connect_info.get('userName')
+                        connect_password = connect_info.get('password')
+                    else:
+                        connect_username = connection_info_obj.get('userName')
+                        connect_password = connection_info_obj.get('password')
+                    connect_enable_password = connection_info_obj.get(
+                        'enablePassword')
 
+                    # Special logic if password and enable password is not available.
+                    if not connect_password:
+                        connect_password = device_obj.get('x_word')
+                    if not connect_enable_password:
+                        connect_enable_password = device_obj.get('x_e_word')
 
-    
-        # In case the ansible connection is overridden.
-        ansible_connection = device_obj.get('ansible_connection')
-        if device_name:
-            connection_info_obj = device_obj.get('connectionInformation')
-            if connection_info_obj:
-                connect_ip = connection_info_obj.get('ip')
-                connect_port = connection_info_obj.get('port')
-                connectInfo = connection_info_obj.get('credentials') 
-                if (connectInfo):
-                    connect_username = connectInfo.get('userName')
-                    connect_password = connectInfo.get('password')
-                else:
-                    connect_username = connection_info_obj.get('userName')
-                    connect_password = connection_info_obj.get('password')
-                connect_enable_password = connection_info_obj.get('enablePassword')
+                    # Check that that the device is not already added by some other inventory plugin.
+                    if not self.inventory.get_host(device_name):
+                        group = None
+                        if network_os:
+                            group = self._convert_group_name(
+                                device_obj.get('discoveredOs'))
+                            self.inventory.add_group(group)
+                        host = self.inventory.add_host(
+                            device_name, group, connect_port)
 
-                # Special logic if password and enable password is not available.
-                if not connect_password: connect_password = device_obj.get('x_word')
-                if not connect_enable_password: connect_enable_password = device_obj.get('x_e_word')
+                    site_path = device_obj.get('sitePath')
+                    if site_path:
+                        site_group = self._convert_group_name(site_path)
+                        self.inventory.add_group(site_group)
+                        self.inventory.add_host(device_name, site_group)
 
+                        # Set the ansible_network_os no matter what.  This is so it is not undefined in the playbook.
+                        self.inventory.set_variable(
+                            host, 'ansible_network_os', network_os)
 
+                        if connect_ip:
+                            self.inventory.set_variable(
+                                host, 'ansible_host', connect_ip)
+                        if connect_username:
+                            self.inventory.set_variable(
+                                host, 'ansible_user', connect_username)
+                        if connect_password:
+                            self.inventory.set_variable(
+                                host, 'ansible_password', connect_password)
+                        if ansible_connection:
+                            self.inventory.set_variable(
+                                host, 'ansible_connection', ansible_connection)
 
-                # Check that that the device is not already added by some other inventory plugin.
-                if not self.inventory.get_host(device_name):
-                    group = None
-                    if network_OS:
-                        group = self._convertGroupName(device_obj.get('discoveredOs'))
-                        self.inventory.add_group(group)
-                    host = self.inventory.add_host(device_name, group, connect_port)
-                
-                site_path = device_obj.get('sitePath')
-                if site_path:
-                    site_group = self._convertGroupName(site_path)
-                    self.inventory.add_group(site_group)
-                    self.inventory.add_host(device_name, site_group)
+                        # Gluware device id is set on this inventory item to be used with other Gluware modules.
+                        if glu_device_id:
+                            self.inventory.set_variable(
+                                host, 'glu_device_id', glu_device_id)
 
-                    # Set the ansible_network_os no matter what.  This is so it is not undefined in the playbook.
-                    self.inventory.set_variable(host,'ansible_network_os', network_OS)
-                    
-                    if connect_ip: self.inventory.set_variable(host, 'ansible_host', connect_ip)
-                    if connect_username: self.inventory.set_variable(host,'ansible_user', connect_username)
-                    if connect_password: self.inventory.set_variable(host,'ansible_password', connect_password)
-                    if ansible_connection: self.inventory.set_variable(host,'ansible_connection', ansible_connection)
+                        # For any device_obj properties that start with 'ansible_var_' add that variable (minus the 'ansible_var_' part) to the host.
+                        for prop_name, prop_val in device_obj.items():
+                            if prop_name.startswith('ansible_var_'):
+                                ansible_var = prop_name[len('ansible_var_'):]
+                                if ansible_var:
+                                    self.inventory.set_variable(
+                                        host, ansible_var, prop_val)
 
-                    # Gluware device id is set on this inventory item to be used with other Gluware modules.
-                    if glu_device_id: self.inventory.set_variable(host, 'glu_device_id', glu_device_id)
+                        # If there is a variable_map then look for the variable in the device_obj and assign it to the ansible_var_name to the host.
+                        variable_map = self.get_option('variable_map')
+                        if variable_map:
+                            for gluprop_name, ansible_var_name in variable_map.items():
+                                deviceprop_val = device_obj.get(gluprop_name)
+                                if deviceprop_val:
+                                    self.inventory.set_variable(
+                                        host, ansible_var_name, deviceprop_val)
+                if option_compose:
+                    self._set_composite_vars(
+                        option_compose, device_obj, device_name)
+                if option_groups:
+                    self._add_host_to_composed_groups(
+                        option_groups, device_obj, device_name)
+                if option_keyed_groups:
+                    self._add_host_to_keyed_groups(
+                        option_keyed_groups, device_obj, device_name)
 
-                    # For any device_obj properties that start with 'ansible_var_' add that variable (minus the 'ansible_var_' part) to the host.
-                    for propName, propVal in device_obj.items():
-                        if propName.startswith('ansible_var_'):
-                            ansibleVar = propName[len('ansible_var_'):]
-                            if ansibleVar: self.inventory.set_variable(host, ansibleVar, propVal)
+        # Finalize inventory
+        self.inventory.reconcile_inventory()
 
-                    # If there is a variable_map then look for the variable in the device_obj and assign it to the ansibleVarName to the host.
-                    variableMap = self.get_option('variable_map')
-                    if variableMap:
-                        for gluPropName, ansibleVarName in variableMap.items():
-                            devicePropVal = device_obj.get(gluPropName)
-                            if devicePropVal: self.inventory.set_variable(host, ansibleVarName, devicePropVal)
-            if option_compose:
-                self._set_composite_vars(option_compose, device_obj, device_name)
-            if option_groups:
-                self._add_host_to_composed_groups(option_groups, device_obj, device_name)
-            if option_keyed_groups:
-                self._add_host_to_keyed_groups(option_keyed_groups, device_obj, device_name)
+    def verify_file(self, path):
+        '''
+            Called by ansible first to verify if the path is valid for this inventory plugin.
+        '''
+        if super(InventoryModule, self).verify_file(path):
+            # base class verifies that file exists and is readable by current user
+            if path.endswith('.yml') or path.endswith('.yaml'):
+                return True
+        return False
 
-    # Finalize inventory
-    self.inventory.reconcile_inventory()
-
-
-  def verify_file(self, path):
-    '''
-        Called by ansible first to verify if the path is valid for this inventory plugin.
-    '''
-    if super(InventoryModule, self).verify_file(path):
-        # base class verifies that file exists and is readable by current user
-        if path.endswith('.yml') or path.endswith('.yaml'):
-            return True
-    return False
-
-
-  def parse(self, inventory, loader, path, cache=True):
-    '''
-        Called by ansible second to fill in the passed inventory object for the specified path.
-        The self.verify_file() was called first so state could have been set on the self object there
-        that can be used here.
-    '''
+    def parse(self, inventory, loader, path, cache=True):
+        '''
+            Called by ansible second to fill in the passed inventory object for the specified path.
+            The self.verify_file() was called first so state could have been set on the self object there
+            that can be used here.
+        '''
 
 # Use the super classes functionality to setup the self object correcly.
-    super(InventoryModule, self).parse(inventory, loader, path)
-    self._read_config_data(path)
+        super(InventoryModule, self).parse(inventory, loader, path)
+        self._read_config_data(path)
 
-    # Setup for the API call for the data for the inventory.    
-    api_host = self.get_option('host')
-    if (not api_host): 
-        api_host = os.environ.get('GLU_CONTROL_HOST')
+        # Setup for the API call for the data for the inventory.
+        api_host = self.get_option('host')
+        if not api_host:
+            api_host = os.environ.get('GLU_CONTROL_HOST')
 
-    if not re.match('(?:http|https)://', api_host):
-        api_host = 'https://{host}'.format(host=api_host)
+        if not re.match('(?:http|https)://', api_host):
+            api_host = 'https://{host}'.format(host=api_host)
 
-    # This api call is for Gluware Control 3.6 and greater.
-    apiURL_1 = urljoin(api_host, '/api/devices?showPassword=true')
-    # This api call is for Gluware Control 3.5.
-    apiURL_2 = urljoin(api_host, '/api/devices')
-    
-    api_user = self.get_option('username')
-    if (not api_user):
-        api_user = os.environ.get('GLU_CONTROL_USERNAME')
+        # This api call is for Gluware Control 3.6 and greater.
+        api_url_1 = urljoin(api_host, '/api/devices?showPassword=true')
+        # This api call is for Gluware Control 3.5.
+        api_url_2 = urljoin(api_host, '/api/devices')
 
-    api_password = self.get_option('password')
-    if (not api_password):
-        api_password = os.environ.get('GLU_CONTROL_PASSWORD')
+        api_user = self.get_option('username')
+        if not api_user:
+            api_user = os.environ.get('GLU_CONTROL_USERNAME')
 
-    api_trust_https = self.get_option('trust_any_host_https_certs')
-    if (not api_trust_https):
-        api_trust_https = os.environ.get('GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS')
+        api_password = self.get_option('password')
+        if not api_password:
+            api_password = os.environ.get('GLU_CONTROL_PASSWORD')
 
-    api_devices = None
-    try:
-        with make_authenticated_request(apiURL_1, api_user, api_password, not api_trust_https, timeout=30) as response:
-            api_devices = json.loads(response.text)
-    except URLError:
-        with make_authenticated_request(apiURL_2, api_user, api_password, not api_trust_https, timeout=30) as response:
-            api_devices = json.loads(response.read())
-    # Process the API data into the inventory object.
-    self._updateInventoryObj(api_devices)
+        api_trust_https = self.get_option('trust_any_host_https_certs')
+        if not api_trust_https:
+            api_trust_https = os.environ.get(
+                'GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS')
+
+        api_devices = None
+        try:
+            with make_authenticated_request(api_url_1, api_user, api_password, not api_trust_https, timeout=30) as response:
+                api_devices = json.loads(response.text)
+        except URLError:
+            with make_authenticated_request(api_url_2, api_user, api_password, not api_trust_https, timeout=30) as response:
+                api_devices = json.loads(response.read())
+        # Process the API data into the inventory object.
+        self._update_inventory_obj(api_devices)
 
 
 def make_authenticated_request(url, user, password, validate_certs=True, timeout=30):

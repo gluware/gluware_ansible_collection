@@ -3,6 +3,15 @@
 
 # Copyright: (c) 2020, Gluware Inc.
 
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+import os
+import json
+import re
+import urllib.error as urllib_error
+import http.client as httplib
+import socket
+from ansible.module_utils.urls import Request
+from ansible.module_utils.basic import AnsibleModule
 ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
@@ -79,21 +88,11 @@ EXAMPLES = r'''
 
 '''
 
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import Request
-import socket
-import http.client as httplib
-import urllib.error as urllib_error
-import re
-import json
-import os
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
 
 try:
     from urlparse import urljoin
 except ImportError:
     from urllib.parse import urljoin
-
 
 
 def run_module():
@@ -112,7 +111,8 @@ def run_module():
                 host=dict(type='str', required=False),
                 username=dict(type='str', required=False),
                 password=dict(type='str', required=False),
-                trust_any_host_https_certs=dict(type='bool', required=False, default=False)
+                trust_any_host_https_certs=dict(
+                    type='bool', required=False, default=False)
             )
         )
     )
@@ -136,7 +136,6 @@ def run_module():
 
     user_params = module.params.get('gluware_control') or {}
 
-
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
         'username': user_params.get('username') or os.environ.get('GLU_CONTROL_USERNAME'),
@@ -146,7 +145,8 @@ def run_module():
 
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
-            module.fail_json(msg=f"Missing required connection parameter: {key}", changed=False)
+            module.fail_json(
+                msg=f"Missing required connection parameter: {key}", changed=False)
 
     api_host = api_dict['host']
     if not re.match('(?:http|https)://', api_host):
@@ -164,28 +164,28 @@ def run_module():
         headers=http_headers
     )
     # Default result JSON object
-    get_device = True
 
     request_payload = {
-        "url_username" : api_dict['username'],
+        "url_username": api_dict['username'],
         "url_password": api_dict['password'],
-        "validate_certs" : not api_dict['trust_any_host_https_certs'],
-        "force_basic_auth" : True,
-        "headers" : http_headers
+        "validate_certs": not api_dict['trust_any_host_https_certs'],
+        "force_basic_auth": True,
+        "headers": http_headers
     }
     if glu_device_id:
         # Only glu_device_id should be used
         if org_name or name:
-            module.warning_json(msg="When 'glu_device_id' is specified, 'org_name' and 'name' must not be set. Only using glu_device_id")
+            module.warning_json(
+                msg="When 'glu_device_id' is specified, 'org_name' and 'name' must not be set. Only using glu_device_id")
     else:
         # org_name and name must both be provided
         if not org_name or not name:
-            module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
+            module.fail_json(
+                msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
         glu_api = GluwareAPIClient(request_payload, api_host)
         glu_device = glu_api._get_device_id(name, org_name)
         glu_device_id = glu_device.get('id')
 
-    
     glu_api = GluwareAPIClient(request_payload, api_host)
     glu_org_id = glu_api._get_org_name(org_name)
     if not glu_org_id:
@@ -197,40 +197,42 @@ def run_module():
     try:
         response = request_handler.get(api_url_1)
     except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
-        error_msg = 'Gluware Control call failed for getting audit policy: {msg}'.format(msg=e2)
+        error_msg = 'Gluware Control call failed for getting audit policy: {msg}'.format(
+            msg=e2)
         module.fail_json(msg=error_msg, changed=False)
 
     # Read in the JSON response to a object.
-    arrayResponse = []
-    try: 
-        readResponse = response.read()
-        arrayResponse = json.loads(readResponse)
-        for resp in arrayResponse:
+    array_response = []
+    try:
+        read_response = response.read()
+        array_response = json.loads(read_response)
+        for resp in array_response:
             if resp.get('name') == audit_policy:
                 audit_policy_id = resp.get('id')
     except (ValueError, TypeError) as e:
-        error_msg = 'Gluware Control call getting audit policy response failed to be parsed as JSON: {msg}'.format(msg=e)
+        error_msg = 'Gluware Control call getting audit policy response failed to be parsed as JSON: {msg}'.format(
+            msg=e)
         module.fail_json(msg=error_msg, changed=False)
 
-    if (len(arrayResponse) == 0):
-        error_msg = 'No audit policy was found for the name: "{msg}"'.format(msg=audit_policy)
+    if len(array_response) == 0:
+        error_msg = 'No audit policy was found for the name: "{msg}"'.format(
+            msg=audit_policy)
         module.fail_json(msg=error_msg, changed=False)
 
-    audit_obj = arrayResponse[0]
-
-    if (not audit_policy_id):
-        error_msg = 'No audit policy id was found for the name: "{msg}"'.format(msg=audit_policy)
+    if not audit_policy_id:
+        error_msg = 'No audit policy id was found for the name: "{msg}"'.format(
+            msg=audit_policy)
         module.fail_json(msg=error_msg, changed=False)
 
     # This api call is for Gluware Control.
     api_url_2 = urljoin(api_host, '/api/audit/execute')
-    
+
     # Create the body of the request.
     api_data = {
-        "name" : description,
-        "deviceIds" : [glu_device_id],
-        "policyId" : audit_policy_id,
-        "capture" : False
+        "name": description,
+        "deviceIds": [glu_device_id],
+        "policyId": audit_policy_id,
+        "capture": False
     }
     print(audit_policy_id)
     http_body = json.dumps(api_data)
@@ -239,9 +241,10 @@ def run_module():
     try:
         response = request_handler.post(api_url_2, data=http_body)
     except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
-        error_msg = 'Gluware Control call failed for executing the audit: {msg}'.format(msg=e2)
+        error_msg = 'Gluware Control call failed for executing the audit: {msg}'.format(
+            msg=e2)
         module.fail_json(msg=error_msg, changed=False)
-    
+
     if response.status != 204:
         error_msg = f"Unexpected response from Gluware Control: HTTP {response.status} - {response.reason}"
         module.fail_json(msg=error_msg, changed=False)
@@ -251,6 +254,7 @@ def run_module():
 
 def main():
     run_module()
+
 
 if __name__ == '__main__':
     main()

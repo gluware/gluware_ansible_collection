@@ -3,6 +3,15 @@
 
 # Copyright: (c) 2020, Gluware Inc.
 
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+import os
+import json
+import re
+import urllib.error as urllib_error
+import http.client as httplib
+import socket
+from ansible.module_utils.urls import Request
+from ansible.module_utils.basic import AnsibleModule
 ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
@@ -73,20 +82,12 @@ EXAMPLES = r'''
 
 '''
 
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import Request
-import socket
-import http.client as httplib
-import urllib.error as urllib_error
-import re
-import json
-import os
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
 
 try:
     from urlparse import urljoin
 except ImportError:
     from urllib.parse import urljoin
+
 
 def run_module():
 
@@ -102,7 +103,8 @@ def run_module():
                 host=dict(type='str', required=False),
                 username=dict(type='str', required=False),
                 password=dict(type='str', required=False),
-                trust_any_host_https_certs=dict(type='bool', required=False, default=False)
+                trust_any_host_https_certs=dict(
+                    type='bool', required=False, default=False)
             )
         )
     )
@@ -135,7 +137,8 @@ def run_module():
 
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
-            module.fail_json(msg=f"Missing required connection parameter: {key}", changed=False)
+            module.fail_json(
+                msg=f"Missing required connection parameter: {key}", changed=False)
 
     # All the required values exist, so use the information in the file for the connection information.
     api_host = api_dict.get('host')
@@ -145,11 +148,10 @@ def run_module():
     if not re.match('(?:http|https)://', api_host):
         api_host = 'https://{host}'.format(host=api_host)
 
-
     # Make sure the Content-Type is set correctly.. otherwise it defaults to application/x-www-form-urlencoded which
     # causes a 400 from Gluware Control
     http_headers = {
-        'Content-Type' : 'application/json'
+        'Content-Type': 'application/json'
     }
 
     # Create the request_handler to make the calls with.
@@ -167,17 +169,19 @@ def run_module():
     if glu_device_id:
         # Only glu_device_id should be used
         if org_name or name:
-            module.warning_json(msg="When 'glu_device_id' is specified, 'org_name' and 'name' must not be set. Only using glu_device_id")
+            module.warning_json(
+                msg="When 'glu_device_id' is specified, 'org_name' and 'name' must not be set. Only using glu_device_id")
     else:
         # org_name and name must both be provided
         if not org_name or not name:
-            module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
+            module.fail_json(
+                msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
         request_payload = {
-            "url_username" : api_dict['username'],
+            "url_username": api_dict['username'],
             "url_password": api_dict['password'],
-            "validate_certs" : not api_dict['trust_any_host_https_certs'],
-            "force_basic_auth" : True,
-            "headers" : http_headers
+            "validate_certs": not api_dict['trust_any_host_https_certs'],
+            "force_basic_auth": True,
+            "headers": http_headers
         }
         glu_api = GluwareAPIClient(request_payload, api_host)
         glu_device = glu_api._get_device_id(name, org_name)
@@ -189,7 +193,7 @@ def run_module():
         module.fail_json(msg="No Gluware ID found for device", changed=False)
     # Create the body of the request.
     api_data = {
-        "devices" : [glu_device_id]
+        "devices": [glu_device_id]
     }
     http_body = json.dumps(api_data)
 
@@ -208,9 +212,10 @@ def run_module():
     result = dict(changed=True)
     module.exit_json(**result)
 
+
 def main():
     run_module()
 
+
 if __name__ == '__main__':
     main()
-
