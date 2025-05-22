@@ -26,8 +26,8 @@ DOCUMENTATION = '''
     - "Note: If you see 'HTTP Error 400: Bad Request', the playbook task may be trying to set a read-only or non-existent attribute."
     version_added: '2.8'
     author:
-        - John Anderson
-        - Oleg Gratwick
+        - John Anderson (@gluware-inc)
+        - Oleg Gratwick (@ogratwick-gluware)
     options:
         gluware_control:
             description:

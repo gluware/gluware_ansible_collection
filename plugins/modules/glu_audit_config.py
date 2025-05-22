@@ -15,8 +15,8 @@ DOCUMENTATION = '''
     - By default this module will use device_id parameter to find the device in Gluware.
     - Module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.
     author:
-    - John Anderson (@gluware-inc)
-    - Oleg Gratwick (@ogratwick)
+        - John Anderson (@gluware-inc)
+        - Oleg Gratwick (@ogratwick-gluware)
     options:
         gluware_control:
             description:

@@ -25,8 +25,8 @@ DOCUMENTATION = '''
         - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
     version_added: '2.8'
     author:
-        - John Anderson
-        - Oleg Gratwick
+        - John Anderson (@gluware-inc)
+        - Oleg Gratwick (@ogratwick-gluware)
     options:
         gluware_control:
             description:

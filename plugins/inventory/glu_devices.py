@@ -25,7 +25,7 @@ DOCUMENTATION = '''
           Otherwise 'discoveredOs' (if available) will be the C('ansible_network_os') for that host.
     author:
         - John Anderson (@gluware-inc)
-        - Oleg Gratwick (@ogratwick)
+        - Oleg Gratwick (@ogratwick-gluware)
     options:
         plugin:
             description: This tells ansible (through the auto inventory plugin) this is a source file for the glu_devices plugin.
