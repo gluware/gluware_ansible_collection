@@ -1,9 +1,185 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019-2020, Gluware Inc.
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
 
-# Gluware Ansible Inventory Plugin
+from __future__ import annotations
+
+
+DOCUMENTATION = '''
+    name: glu_devices
+    short_description: Gluware Control Inventory Source
+    description:
+        - Get inventory from Device Manager in Gluware Control.
+        - Uses a YAML configuration file that ends with C(.yml/.yaml) for the connection information of the Gluware Control system.
+        - This plugin is able to gather credentials that are set for devices within Gluware.
+          If this is desired behavior, ensure the user you are using to authenticate to Gluware has System Developer role with Superuser Privileges.
+        - It is recommended to create a specific user that has access to only the target Gluware organization when using the inventory plugin to avoid having
+          groups with devices from separate organizations.
+        - If there are any Gluware Control custom attributes with values on the devices that start with C(ansible_var_) then those variables will be added to
+          the host (minus the C('ansible_var_') part).
+        - If there is a Gluware Control custom field of C('ansible_connection') on the device then that will be the connection for that host.
+          Otherwise C'network_cli') will be the connection.
+        - If there is a Gluware Control custom field of C('ansible_network_os') on the device then that will be the 'ansible_network_os' for that host.
+          Otherwise 'discoveredOs' (if available) will be the C('ansible_network_os') for that host.
+    author:
+        - John Anderson (@gluware-inc)
+        - Oleg Gratwick (@ogratwick)
+    options:
+        plugin:
+            description: This tells ansible (through the auto inventory plugin) this is a source file for the glu_devices plugin.
+            required: True
+            choices: ['glu_devices', 'gluware_inc.control.glu_devices']
+        host:
+            description: The network address or name of your Gluware Control system host.
+            type: str
+            env:
+                - name: GLU_CONTROL_HOST
+            required: True
+        username:
+            description: The user used to access devices (inventories) from the Gluware Control system.
+            type: str
+            env:
+                - name: GLU_CONTROL_USERNAME
+            required: True
+        password:
+            description: The password for the username of the Gluware Control system.
+            type: str
+            env:
+                - name: GLU_CONTROL_PASSWORD
+            required: True
+        trust_any_host_https_certs:
+            description:
+                - Specify whether Ansible should verify the SSL certificate of https calls on the Control Gluware system host.
+                - This is used for self-signed Gluware Control Systems.
+            type: bool
+            default: False
+            env:
+                - name: GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS
+            required: False
+            aliases: [ verify_ssl ]
+        compose:
+            description:
+                - Add a host variable from Jinja2 expressions.
+                - The keys of the dictionary are the host variables.
+                - The values of the dictionary are Jinja2 exzpresions.
+                - The Jinja2 expressions can use Gluware Control device attributes (including custom attributes).
+            type: dict
+            required: False
+        groups:
+            description:
+                - Define groups for a host based on Jinja2 conditionals.
+                - The keys of the dictionary are the groups.
+                - The values of the dictionary are Jinja2 conditionals where a truthful condition causes current host be in the group specified in the key.
+                - The Jinja2 conditionals can use Gluware Control device attributes (including custom attributes).
+            type: dict
+            required: False
+        keyed_groups:
+            description:
+                - Define groups for a host from Jinja2 expresions.
+                - Each list item is a dictionary with the following keys.
+                - (key) a required Jinga 2 expression
+                - (prefix) a optional text to prefix the value of the (key) expression. The default is a empty string.
+                - (separator) a optional text to separate the (prefix) and (key) expression. The default is a underscore '_'.
+                - (parent_group) a optional text to specify the parent group for this group.
+                - The Jinja2 expressions can use Gluware Control device attributes (including custom attributes).
+            type: list
+            elements: dict
+            required: False
+        variable_map:
+            description:
+                - (DEPRECATED) use the 'compose' option. 'compose' eclipses the functionality of this option.
+                - This option is a dictionary where the keys are variable names of Gluware Control devices attributes (including custom attributes).
+                - The values of the dictionary are strings that specify the variable names on the host in Ansible.
+            type: dict
+            required: false
+'''
+
+EXAMPLES = r'''
+---
+#
+# Minimal Configuration for *glu_devices.yml files where no GLU_CONTROL_* environment variables are defined.
+plugin: glu_devices
+host: 'https://10.0.0.1'
+username: <user name in Gluware Control system for device API calls>
+password: <password for user name>
+
+---
+#
+# Configuration to use a Gluware Control system that has a self-signed certificate.
+plugin: gluware.control.glu_devices
+host: 'https://10.0.0.1'
+username: <user name in Gluware Control system for device API calls>
+password: <password for user name>
+trust_any_host_https_certs: True
+---
+
+#
+# Configuration to map the Gluware device attribute 'discoveredSerialNumber' to the Ansible host variable 'serial_num'
+plugin: glu_devices
+host: 'https://10.0.0.1'
+username: <user name in Gluware Control system for device API calls>
+password: <password for user name>
+trust_any_host_https_certs: True
+compose:
+    serial_num : discoveredSerialNumber
+
+---
+#
+# Configuration to have Gluware Control devices grouped under the value custom attribute 'Area' where 'Area' is also the parent group.
+plugin: glu_devices
+host: 'https://10.0.0.1'
+username: <user name in Gluware Control system for device API calls>
+password: <password for user name>
+trust_any_host_https_certs: True
+keyed_groups:
+    - key: Area
+      separator: ''
+      parent_group: Area
+
+---
+
+#
+# Configuration to have Gluware Control devices grouped under 'front_devices' where the text 'Front' is found in the 'Area' custom attribute.
+plugin: glu_devices
+host: 'https://10.0.0.1'
+username: <user name in Gluware Control system for device API calls>
+password: <password for user name>
+trust_any_host_https_certs: True
+groups:
+    front_devices: "'Front' in Area"
+#Advanced example for composition
+plugin: glu_devices
+host: 'https://10.0.0.1'
+username: <user name in Gluware Control system for device API calls>
+password: <password for user name>
+trust_any_host_https_certs: True
+compose:
+    glu_serial_num : discoveredSerialNumber
+    glu_asset_tag : Asset Tag
+    glu_audit_status : auditStatus
+    glu_drift_status : driftStatus
+    glu_critical_adv : custFields["Critical Advisories"]
+    glu_discovery_status : discoveryStatus
+    glu_access_status : accessStatus
+    glu_connection_method : connectionMethod
+    glu_description : "description"
+    glu_discovered_type : discoveredTypeBase
+    glu_environment : environment
+    glu_name : "name"
+    glu_props_domains : nodeProperties.Domains
+    glu_props_assembly : nodeProperties["Assembly Policy"]
+    glu_props_prov_summary : nodeProperties["Feature Provisioning Summary"]
+    glu_org_id : orgId
+    glu_conn_ip : connectionInformation.ip
+    glu_conn_type : connectionInformation.type
+    glu_site_code : sideCodeName
+    glu_site_name : sideName
+    glu_creds_rule : credsName
+    glu_props_licenses : discoveredLicenses
+
+'''
 
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
 from ansible.module_utils._text import to_native
@@ -18,173 +194,6 @@ import re
 import os
 from urllib.error import URLError
 from urllib.request import Request as URLRequest, build_opener, HTTPBasicAuthHandler, HTTPSHandler
-ANSIBLE_METADATA = {'metadata_version': '1.2.0',
-                    'status': ['released'],
-                    'supported_by': 'Gluware Inc'}
-
-DOCUMENTATION = '''
-    name: gluware_inc.control.glu_devices
-    plugin_type: inventory
-    short_description: Gluware Control Inventory Source
-    description:
-        - Get inventory from Device Manager in Gluware Control.
-        - Uses a YAML configuration file that ends with C(.yml/.yaml) for the connection information of the Gluware Control system.
-        - This plugin is able to gather credentials that are set for devices within Gluware. If this is desired behavior, ensure the user you are using to authenticate to Gluware has System Developer role with Superuser Privileges.
-        - It is recommended to create a specific user that has access to only the target Gluware organization when using the inventory plugin to avoid having groups with devices from separate organizations.
-        - If there are any Gluware Control custom attributes with values on the devices that start with 'ansible_var_' then those variables will be added to the host (minus the 'ansible_var_' part).
-        - If there is a Gluware Control custom field of 'ansible_connection' on the device then that will be the connection for that host.  Otherwise 'network_cli' will be the connection.
-        - If there is a Gluware Control custom field of 'ansible_network_os' on the device then that will be the 'ansible_network_os' for that hose.  Otherwise 'discoveredOs' (if available) will be the 'ansible_network_os' for that host.
-    version_added: '2.8'
-    author:
-        - John Anderson
-        - Oleg Gratwick
-    options:
-        plugin:
-            description: This tells ansible (through the auto inventory plugin) this is a source file for the glu_devices plugin.
-            required: True
-            choices: ['glu_devices', 'gluware_inc.control.glu_devices']
-        host:
-            description: The network address or name of your Gluware Control system host.
-            type: string
-            env:
-                - name: GLU_CONTROL_HOST
-            required: True
-        username:
-            description: The user used to access devices (inventories) from the Gluware Control system.
-            type: string
-            env:
-                - name: GLU_CONTROL_USERNAME
-            required: True
-        password:
-            description: The password for the username of the Gluware Control system.
-            type: string
-            env:
-                - name: GLU_CONTROL_PASSWORD
-            required: True
-        trust_any_host_https_certs:
-            description: 
-                - Specify whether Ansible should verify the SSL certificate of https calls on the Control Gluware system host.
-                - This is used for self-signed Gluware Control Systems.
-            type: bool
-            default: False
-            env:
-                - name: GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS
-            required: False
-            aliases: [ verify_ssl ]
-        compose:
-            description: 
-                - Add a host variable from Jinja2 expressions.
-                - The keys of the dictionary are the host variables.
-                - The values of the dictionary are Jinja2 exzpresions.
-                - The Jinja2 expressions can use Gluware Control device attributes (including custom attributes).
-            type: dict
-            required: False
-        groups:
-            description: 
-                - Define groups for a host based on Jinja2 conditionals.
-                - The keys of the dictionary are the groups.
-                - The values of the dictionary are Jinja2 conditionals where a truthful condition causes current host be in the group specified in the key.
-                - The Jinja2 conditionals can use Gluware Control device attributes (including custom attributes).
-            type: dict
-            required: False
-        keyed_groups:
-            description: 
-                - Define groups for a host from Jinja2 expresions.
-                - Each list item is a dictionary with the following keys.
-                - (key) a required Jinga 2 expression
-                - (prefix) a optional text to prefix the value of the (key) expression. The default is a empty string.
-                - (separator) a optional text to separate the (prefix) and (key) expression. The default is a underscore '_'.
-                - (parent_group) a optional text to specify the parent group for this group.
-                - The Jinja2 expressions can use Gluware Control device attributes (including custom attributes).
-            type: list
-            required: False
-        variable_map:
-            description: 
-                - (DEPRECATED) use the 'compose' option. 'compose' eclipses the functionality of this option. 
-                - This option is a dictionary where the keys are variable names of Gluware Control devices attributes (including custom attributes).
-                - The values of the dictionary are strings that specify the variable names on the host in Ansible.
-            type: dict
-            required: false
-'''
-
-EXAMPLES = r'''
-    #
-    # Minimal Configuration for *glu_devices.yml files where no GLU_CONTROL_* environment variables are defined.
-    plugin: glu_devices
-    host: 'https://10.0.0.1'
-    username: <user name in Gluware Control system for device API calls>
-    password: <password for user name>
-
-    #
-    # Configuration to use a Gluware Control system that has a self-signed certificate.
-    plugin: gluware.control.glu_devices
-    host: 'https://10.0.0.1'
-    username: <user name in Gluware Control system for device API calls>
-    password: <password for user name>
-    trust_any_host_https_certs: True
-
-    #
-    # Configuration to map the Gluware device attribute 'discoveredSerialNumber' to the Ansible host variable 'serial_num'
-    plugin: glu_devices
-    host: 'https://10.0.0.1'
-    username: <user name in Gluware Control system for device API calls>
-    password: <password for user name>
-    trust_any_host_https_certs: True
-    compose:
-        serial_num : discoveredSerialNumber
-
-    #
-    # Configuration to have Gluware Control devices grouped under the value custom attribute 'Area' where 'Area' is also the parent group.
-    plugin: glu_devices
-    host: 'https://10.0.0.1'
-    username: <user name in Gluware Control system for device API calls>
-    password: <password for user name>
-    trust_any_host_https_certs: True
-    keyed_groups:
-        - key: Area
-          separator: ''
-          parent_group: Area
-
-    #
-    # Configuration to have Gluware Control devices grouped under 'front_devices' where the text 'Front' is found in the 'Area' custom attribute.
-    plugin: glu_devices
-    host: 'https://10.0.0.1'
-    username: <user name in Gluware Control system for device API calls>
-    password: <password for user name>
-    trust_any_host_https_certs: True
-    groups:
-        front_devices: "'Front' in Area"
-    #Advanced example for composition
-    plugin: glu_devices
-    host: 'https://10.0.0.1'
-    username: <user name in Gluware Control system for device API calls>
-    password: <password for user name>
-    trust_any_host_https_certs: True
-    compose:
-        glu_serial_num : discoveredSerialNumber
-        glu_asset_tag : Asset Tag
-        glu_audit_status : auditStatus
-        glu_drift_status : driftStatus
-        glu_critical_adv : custFields["Critical Advisories"]
-        glu_discovery_status : discoveryStatus
-        glu_access_status : accessStatus
-        glu_connection_method : connectionMethod
-        glu_description : "description"
-        glu_discovered_type : discoveredTypeBase
-        glu_environment : environment
-        glu_name : "name"
-        glu_props_domains : nodeProperties.Domains
-        glu_props_assembly : nodeProperties["Assembly Policy"]
-        glu_props_prov_summary : nodeProperties["Feature Provisioning Summary"]
-        glu_org_id : orgId
-        glu_conn_ip : connectionInformation.ip
-        glu_conn_type : connectionInformation.type
-        glu_site_code : sideCodeName
-        glu_site_name : sideName
-        glu_creds_rule : credsName
-        glu_props_licenses : discoveredLicenses
-
-'''
 
 # Python 2/3 Compatibility
 try:
