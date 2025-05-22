@@ -10,8 +10,12 @@ import re
 import urllib.error as urllib_error
 import http.client as httplib
 import socket
-from ansible.module_utils.urls import Request
 from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+# Add this line to pull in the doc fragment
+from ansible.module_utils.common.text.converters import to_native
+from ansible.module_utils.urls import Request
+# Add this line to pull in the doc fragment
 ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
@@ -26,48 +30,16 @@ DOCUMENTATION = '''
     - "Note: If you see 'HTTP Error 400: Bad Request', the playbook task may be trying to set a read-only or non-existent attribute."
     version_added: '2.8'
     author:
-        - John Anderson (@gluware-inc)
-        - Oleg Gratwick (@ogratwick-gluware)
+    - John Anderson (@gluware-inc)
+    - Oleg Gratwick (@ogratwick-gluware)
     options:
-        gluware_control:
-            description:
-                - Connection details for the Gluware Control platform.
-            type: dict
-            required: True
-            suboptions:
-                host:
-                    description: Hostname or IP address of the Gluware Control server.
-                    type: string
-                username:
-                    description: Username for authentication with Gluware Control.
-                    type: string
-                password:
-                    description: Password for authentication with Gluware Control.
-                    type: string
-                trust_https_certs:
-                    description: Bypass HTTPS certificate verification.
-                    type: boolean
-        glu_device_id:
-            description:
-                - ID of the device within Gluware.
-                - The glu_devices inventory plugin automatically supplies this variable.
-            type: string
-            required: False
-        org_name:
-            description:
-                - Organization name the device is in within Gluware.
-            type: string
-            required: False
-        name:
-            description:
-                - Target device name within Gluware Control.
-            type: string
-            required: False
         data:
             description:
                 - Key/Value pairs to update for the target device.
             type: dict
             required: True
+    extends_documentation_fragment:
+    - gluware_inc.conctrol.gluware_control
 '''
 
 EXAMPLES = r'''
