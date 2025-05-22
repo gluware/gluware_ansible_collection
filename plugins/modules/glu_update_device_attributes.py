@@ -28,6 +28,11 @@ DOCUMENTATION = '''
     - John Anderson (@gluware-inc)
     - Oleg Gratwick (@ogratwick-gluware)
     options:
+        data:
+        description:
+            - Key/Value pairs to update for the target device.
+        type: dict
+        required: True
     extends_documentation_fragment:
     - gluware_inc.control.gluware_control
 
