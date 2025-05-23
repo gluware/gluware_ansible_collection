@@ -29,10 +29,10 @@ DOCUMENTATION = '''
     - Oleg Gratwick (@ogratwick-gluware)
     options:
         data:
-        description:
-            - Key/Value pairs to update for the target device.
-        type: dict
-        required: True
+            description:
+                - Key/Value pairs to update for the target device.
+            type: dict
+            required: True
     extends_documentation_fragment:
     - gluware_inc.control.gluware_control
 
@@ -52,10 +52,7 @@ EXAMPLES = r'''
       gluware_inc.control.glu_run_discover_device_attributes:
         glu_device_id: "340b28a3-72b9-4708-852e-9c7490e2e650"
         gluware_control: "{{control}}"
-
-
 '''
-
 
 try:
     from urlparse import urljoin

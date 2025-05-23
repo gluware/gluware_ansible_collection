@@ -57,10 +57,10 @@ except ImportError:
 
 
 def run_module():
-    module_args = GluwareAPIClient.gluware_common_params()
-    # Module parameters
-    module_args.update(description=dict(type='str', required=False))
 
+    # Module parameters
+    module_args = GluwareAPIClient.gluware_common_params()
+    module_args.update(description=dict(type='str', required=False),)
     # Initialize the AnsibleModule to use in communication from and to the
     # code (playbook, etc) interacting with this module.
     module = AnsibleModule(
