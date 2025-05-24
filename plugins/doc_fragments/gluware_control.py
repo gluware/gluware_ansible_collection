@@ -25,7 +25,7 @@ options:
           password:
               description: Password for authentication with Gluware Control.
               type: str
-          trust_https_certs:
+          trust_any_host_https_certs:
               description: Bypass HTTPS certificate verification.
               type: boolean
   glu_device_id:
