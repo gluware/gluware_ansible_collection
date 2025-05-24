@@ -146,7 +146,7 @@ def run_module():
     glu_api = GluwareAPIClient(request_payload, api_host)
     glu_org_id = glu_api._get_org_name(org_name)
     if not glu_org_id:
-        module.fail_json(msg=f"No organization found with name {org_name}")
+        module.fail_json(msg="No organization found with name {}".format(org_name))
     org_id = glu_org_id[0].get('id')
     # This api call is for Gluware Control.
     api_url_1 = urljoin(api_host, '/api/audit/policies?orgId=' + org_id)

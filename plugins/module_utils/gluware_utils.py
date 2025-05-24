@@ -43,7 +43,7 @@ class GluwareAPIClient:
             response.raise_for_status()
             return response.json()
         except requests.RequestException as err:
-            raise Exception(f"GET request to {url} failed: {err}")
+            raise Exception("GET request to {} failed: {}".format(url, err))
         
     def gluware_common_params():
         return dict(

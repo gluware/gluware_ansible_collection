@@ -162,9 +162,8 @@ def run_module():
 
     # Check for 204 No Content response
     if response.status != 204:
-        error_msg = f"Unexpected response from Gluware Control: HTTP \
-            {response.status} - {response.reason}"
-        module.fail_json(msg=error_msg, changed=False)
+        module.fail_json(msg="Unexpected response from Gluware Control: HTTP {} - {}".format(response.status, response.reason), changed=False)
+    
     result = dict(changed=True)
     module.exit_json(**result)
 
