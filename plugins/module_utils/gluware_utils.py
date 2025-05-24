@@ -6,7 +6,6 @@ from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 from urllib.parse import urljoin
-from ansible.errors import AnsibleError
 from ansible.module_utils._text import to_native
 
 HAS_REQUESTS = True
@@ -22,7 +21,7 @@ class GluwareAPIClient:
         self.api_url = api_url.rstrip('/')
 
         if not HAS_REQUESTS:
-            raise AnsibleError(to_native('requests module is not installed. Please install module to continue.'))
+            raise Exception('requests module is not installed. Please install module to continue.')
 
         self.session = requests.Session()
         self.session.headers.update(request_handler.get("headers", {}))
