@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
+from __future__ import (absolute_import, division, print_function)
 # GNU General Public License v3.0+
 # This file is part of Ansible
 # (c) 2020, Gluware Inc.
@@ -99,7 +99,7 @@ def run_module():
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
             module.fail_json(
-                msg=f"Missing required connection parameter: {key}", changed=False)
+                msg="Missing required connection parameter: {}".format(key), changed=False)
 
     # All the required values exist, so use the information in the file for the connection information.
     api_host = api_dict.get('host')

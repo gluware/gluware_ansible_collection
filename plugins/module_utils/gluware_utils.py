@@ -33,7 +33,7 @@ class GluwareAPIClient:
         self.verify = request_handler.get("validate_certs", True)
 
     def _url(self, path):
-        return f"{self.api_url}/{path.lstrip('/')}"
+        return "{}/{}".format(self.api_url, path.lstrip('/'))
 
     def _get_org_name(self, org_name):
         url = urljoin(self.api_url, '/api/organizations?name=' + org_name)
