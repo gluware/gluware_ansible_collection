@@ -22,8 +22,8 @@ class GluwareAPIClient:
         self.api_url = api_url.rstrip('/')
 
         if not HAS_REQUESTS:
-            error_msg = (msg='requests module is not installed. Please install module to continue.')
-            raise AnsibleError(to_native(error_msg))
+            raise AnsibleError(to_native('requests module is not installed. Please install module to continue.'))
+
         self.session = requests.Session()
         self.session.headers.update(request_handler.get("headers", {}))
         self.auth = HTTPBasicAuth(

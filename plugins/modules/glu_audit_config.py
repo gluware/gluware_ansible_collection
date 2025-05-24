@@ -102,8 +102,7 @@ def run_module():
 
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
-            module.fail_json(
-                module.fail_json(msg="Missing required connection parameter: {}".format(key), changed=False)
+            module.fail_json(msg="Missing required connection parameter: {}".format(key), changed=False)
 
 
     api_host = api_dict['host']
