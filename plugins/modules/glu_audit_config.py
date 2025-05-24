@@ -1,7 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2020, Gluware Inc.
+# GNU General Public License v3.0+
+# This file is part of Ansible
+# (c) 2020, Gluware Inc.
+# Licensed under the GNU General Public License version 3 as published by
+# the Free Software Foundation.
+# See https://www.gnu.org/licenses/gpl-3.0.txt
 
 from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
 import os
@@ -31,12 +36,12 @@ DOCUMENTATION = '''
         description:
             description:
             - Description for the instance of this audit execution.
-            type: string
+            type: str
             required: True
         audit_policy:
             description:
             - Audit Policy Name as displayed in Gluware Config Drift & Audit.
-            type: string
+            type: str
             required: True
     extends_documentation_fragment:
     - gluware_inc.control.gluware_control
@@ -46,16 +51,14 @@ EXAMPLES = r'''
     #
     # Trigger a Gluware Control audit on the current captured config for the current device.
     #
-    - name: Creating a audit on the current captured config for the current device
-      glu_audit_config:
-        gluware_control: "{{control}}"
-        glu_device_id: "{{ glu_device_id }}"
-        description: "Checking config for correct NTP Server"
-        audit_policy: "Data Center NTP Server Audit"
-
+- name: Creating a audit on the current captured config for the current device
+    glu_audit_config:
+    gluware_control: "{{control}}"
+    glu_device_id: "{{ glu_device_id }}"
+    description: "Checking config for correct NTP Server"
+    audit_policy: "Data Center NTP Server Audit"
 
 '''
-
 
 try:
     from urlparse import urljoin
@@ -146,7 +149,7 @@ def run_module():
         module.fail_json(msg=f"No organization found with name {org_name}")
     org_id = glu_org_id[0].get('id')
     # This api call is for Gluware Control.
-    api_url_1 = urljoin(api_host, '/api/audit/policies?orgId='+org_id)
+    api_url_1 = urljoin(api_host, '/api/audit/policies?orgId=' + org_id)
 
     try:
         response = request_handler.get(api_url_1)
@@ -164,7 +167,8 @@ def run_module():
             if resp.get('name') == audit_policy:
                 audit_policy_id = resp.get('id')
     except (ValueError, TypeError) as e:
-        error_msg = 'Gluware Control call getting audit policy response failed to be parsed as JSON: {msg}'.format(
+        error_msg = 'Gluware Control call getting audit policy response failed to be parsed ' \
+        'as JSON: {msg}'.format(
             msg=e)
         module.fail_json(msg=error_msg, changed=False)
 
@@ -188,7 +192,6 @@ def run_module():
         "policyId": audit_policy_id,
         "capture": False
     }
-    print(audit_policy_id)
     http_body = json.dumps(api_data)
 
     # Make the actual api call.

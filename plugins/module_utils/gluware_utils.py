@@ -5,9 +5,9 @@
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
-import json
 from urllib.parse import urljoin
-
+from ansible.errors import AnsibleError
+from ansible.module_utils._text import to_native
 
 HAS_REQUESTS = True
 try:
@@ -22,8 +22,8 @@ class GluwareAPIClient:
         self.api_url = api_url.rstrip('/')
 
         if not HAS_REQUESTS:
-            module.fail_json(msg='requests module is not installed. Please install module to continue.')
-
+            error_msg = (msg='requests module is not installed. Please install module to continue.')
+            raise AnsibleError(to_native(error_msg))
         self.session = requests.Session()
         self.session.headers.update(request_handler.get("headers", {}))
         self.auth = HTTPBasicAuth(
@@ -44,6 +44,7 @@ class GluwareAPIClient:
             return response.json()
         except requests.RequestException as err:
             raise Exception(f"GET request to {url} failed: {err}")
+        
     def gluware_common_params():
         return dict(
             org_name=dict(type='str', required=False),
@@ -55,12 +56,13 @@ class GluwareAPIClient:
                 options=dict(
                     host=dict(type='str', required=False),
                     username=dict(type='str', required=False),
-                    password=dict(type='str', required=False),
+                    password=dict(type='str', required=False, no_log=True),
                     trust_any_host_https_certs=dict(
                         type='bool', required=False, default=False)
                 )
             )
         )
+    
     def _get_device_id(self, name, org_name):
         org_list = self._get_org_name(org_name)
         if not org_list:

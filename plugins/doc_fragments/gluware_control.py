@@ -8,8 +8,26 @@ __metaclass__ = type
 
 
 class ModuleDocFragment(object):
-  DOCUMENTATION = r'''
+    DOCUMENTATION = r'''
 options:
+  gluware_control:
+      description:
+      - Connection details for the Gluware Control platform.
+      type: dict
+      required: True
+      suboptions:
+          host:
+              description: Hostname or IP address of the Gluware Control server.
+              type: str
+          username:
+              description: Username for authentication with Gluware Control.
+              type: str
+          password:
+              description: Password for authentication with Gluware Control.
+              type: str
+          trust_https_certs:
+              description: Bypass HTTPS certificate verification.
+              type: boolean
   glu_device_id:
     description:
       - ID of the device within Gluware.

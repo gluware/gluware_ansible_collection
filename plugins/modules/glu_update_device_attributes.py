@@ -1,7 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2020, Gluware Inc.
+# GNU General Public License v3.0+
+# This file is part of Ansible
+# (c) 2020, Gluware Inc.
+# Licensed under the GNU General Public License version 3 as published by
+# the Free Software Foundation.
+# See https://www.gnu.org/licenses/gpl-3.0.txt
 
 from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
 import os
@@ -42,16 +47,16 @@ EXAMPLES = r'''
     #
     # Trigger a Gluware Control discover device attributes for the current device
     #
-    - name: Discover device properties
-      gluware_inc.control.glu_run_discover_device_attributes:
-        org_name: "gluware_organization"
-        name: "{{inventory_hostname}}"
-        gluware_control: "{{control}}"
+- name: Discover device properties
+    gluware_inc.control.glu_run_discover_device_attributes:
+    org_name: "gluware_organization"
+    name: "{{inventory_hostname}}"
+    gluware_control: "{{control}}"
 
-    - name: Discover device properties
-      gluware_inc.control.glu_run_discover_device_attributes:
-        glu_device_id: "340b28a3-72b9-4708-852e-9c7490e2e650"
-        gluware_control: "{{control}}"
+- name: Discover device properties
+    gluware_inc.control.glu_run_discover_device_attributes:
+    glu_device_id: "340b28a3-72b9-4708-852e-9c7490e2e650"
+    gluware_control: "{{control}}"
 '''
 
 try:
@@ -156,7 +161,8 @@ def run_module():
     # Make the actual api call.
     try:
         response = request_handler.post(api_url, data=http_body)
-    except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
+    except (ConnectionError, httplib.HTTPException, socket.error, \
+            urllib_error.URLError) as e2:
         error_msg = 'Gluware Control call failed: {msg}'.format(msg=e2)
         module.fail_json(msg=error_msg, changed=False)
 
@@ -164,7 +170,6 @@ def run_module():
     if response.status != 204:
         error_msg = f"Unexpected response from Gluware Control: HTTP {response.status} - {response.reason}"
         module.fail_json(msg=error_msg, changed=False)
-
     result = dict(changed=True)
     module.exit_json(**result)
 

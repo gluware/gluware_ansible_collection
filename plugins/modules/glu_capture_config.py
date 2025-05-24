@@ -1,7 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2020, Gluware Inc.
+# GNU General Public License v3.0+
+# This file is part of Ansible
+# (c) 2020, Gluware Inc.
+# Licensed under the GNU General Public License version 3 as published by
+# the Free Software Foundation.
+# See https://www.gnu.org/licenses/gpl-3.0.txt
 
 from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
 import os
@@ -31,7 +36,7 @@ DOCUMENTATION = '''
         description:
             description:
             - Name to associate snapshot with.
-            type: string
+            type: str
             required: False
     extends_documentation_fragment:
     - gluware_inc.control.gluware_control
@@ -80,7 +85,7 @@ def run_module():
 
     user_params = module.params.get('gluware_control') or {}
 
-  # Figure out the Gluware Control connection information.
+    # Figure out the Gluware Control connection information.
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
         'username': user_params.get('username') or os.environ.get('GLU_CONTROL_USERNAME'),
@@ -157,9 +162,9 @@ def run_module():
 
     # Check for 204 No Content response
     if response.status != 204:
-        error_msg = f"Unexpected response from Gluware Control: HTTP {response.status} - {response.reason}"
+        error_msg = f"Unexpected response from Gluware Control: HTTP \
+            {response.status} - {response.reason}"
         module.fail_json(msg=error_msg, changed=False)
-
     result = dict(changed=True)
     module.exit_json(**result)
 

@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2019-2020, Gluware Inc.
-# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
-# SPDX-License-Identifier: GPL-3.0-or-later
+# GNU General Public License v3.0+
+# This file is part of Ansible
+# (c) 2020, Gluware Inc.
+# Licensed under the GNU General Public License version 3 as published by
+# the Free Software Foundation.
+# See https://www.gnu.org/licenses/gpl-3.0.txt
 
 from __future__ import annotations
 
@@ -192,8 +195,6 @@ import json
 import re
 import os
 from urllib.error import URLError
-from urllib.request import Request as URLRequest, build_opener, HTTPBasicAuthHandler, HTTPSHandler
-
 # Python 2/3 Compatibility
 try:
     from urlparse import urljoin
@@ -229,7 +230,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
         self.group_prefix = 'glu_'
         if not HAS_REQUESTS:
-            module.fail_json(msg='requests module is not installed. Please install module to continue.')
+            error_msg = (msg='requests module is not installed. Please install module to continue.')
+            raise AnsibleError(to_native(error_msg))
 
     @staticmethod
     def _convert_group_name(group_name):
