@@ -230,7 +230,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
         self.group_prefix = 'glu_'
         if not HAS_REQUESTS:
-            error_msg = (msg='requests module is not installed. Please install module to continue.')
+            error_msg = ('requests module is not installed. Please install module to continue.')
             raise AnsibleError(to_native(error_msg))
 
     @staticmethod
