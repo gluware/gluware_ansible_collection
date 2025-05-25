@@ -6,7 +6,6 @@ from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 from urllib.parse import urljoin
-from ansible.module_utils._text import to_native
 
 HAS_REQUESTS = True
 try:
@@ -44,7 +43,7 @@ class GluwareAPIClient:
         except requests.RequestException as err:
             raise Exception("GET request to {} failed: {}".format(url, err))
 
-    def gluware_common_params():
+    def gluware_common_params(self):
         return dict(
             org_name=dict(type='str', required=False),
             name=dict(type='str', required=False),
