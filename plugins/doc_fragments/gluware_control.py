@@ -27,7 +27,8 @@ options:
               type: str
           trust_any_host_https_certs:
               description: Bypass HTTPS certificate verification.
-              type: boolean
+              type: bool
+              default: False
   glu_device_id:
     description:
       - ID of the device within Gluware.

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function)
 # GNU General Public License v3.0+
 # This file is part of Ansible
 # (c) 2020, Gluware Inc.
@@ -8,15 +7,6 @@ from __future__ import (absolute_import, division, print_function)
 # the Free Software Foundation.
 # See https://www.gnu.org/licenses/gpl-3.0.txt
 
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
-import os
-import json
-import re
-import urllib.error as urllib_error
-import http.client as httplib
-import socket
-from ansible.module_utils.urls import Request
-from ansible.module_utils.basic import AnsibleModule
 ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
@@ -60,6 +50,17 @@ EXAMPLES = r'''
     audit_policy: "Data Center NTP Server Audit"
 
 '''
+
+from __future__ import (absolute_import, division, print_function)
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+import os
+import json
+import re
+import urllib.error as urllib_error
+import http.client as httplib
+import socket
+from ansible.module_utils.urls import Request
+from ansible.module_utils.basic import AnsibleModule
 
 try:
     from urlparse import urljoin
@@ -167,8 +168,10 @@ def run_module():
             if resp.get('name') == audit_policy:
                 audit_policy_id = resp.get('id')
     except (ValueError, TypeError) as e:
-        error_msg = 'Gluware Control call getting audit policy response failed to be parsed ' \
-        'as JSON: {msg}'.format(msg=e)
+        error_msg = (
+            'Gluware Control call getting audit policy response failed to be parsed '
+            'as JSON: {msg}'.format(msg=e)
+        )
         module.fail_json(msg=error_msg, changed=False)
 
     if len(array_response) == 0:

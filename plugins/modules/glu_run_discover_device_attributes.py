@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function)
 # GNU General Public License v3.0+
 # This file is part of Ansible
 # (c) 2020, Gluware Inc.
@@ -8,15 +7,6 @@ from __future__ import (absolute_import, division, print_function)
 # the Free Software Foundation.
 # See https://www.gnu.org/licenses/gpl-3.0.txt
 
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
-import os
-import json
-import re
-import urllib.error as urllib_error
-import http.client as httplib
-import socket
-from ansible.module_utils.urls import Request
-from ansible.module_utils.basic import AnsibleModule
 ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
@@ -54,6 +44,16 @@ EXAMPLES = r'''
     gluware_control: "{{control}}"
 '''
 
+from __future__ import (absolute_import, division, print_function)
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+import os
+import json
+import re
+import urllib.error as urllib_error
+import http.client as httplib
+import socket
+from ansible.module_utils.urls import Request
+from ansible.module_utils.basic import AnsibleModule
 
 try:
     from urlparse import urljoin
@@ -157,7 +157,7 @@ def run_module():
     # Make the actual api call.
     try:
         response = request_handler.post(api_url, data=http_body)
-    except (ConnectionError, httplib.HTTPException, 
+    except (ConnectionError, httplib.HTTPException,
             socket.error, urllib_error.URLError) as e2:
         error_msg = 'Gluware Control call failed: {msg}'.format(msg=e2)
         module.fail_json(msg=error_msg, changed=False)
@@ -169,8 +169,10 @@ def run_module():
     result = dict(changed=True)
     module.exit_json(**result)
 
+
 def main():
     run_module()
+
 
 if __name__ == '__main__':
     main()

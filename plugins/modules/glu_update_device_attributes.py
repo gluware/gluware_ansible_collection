@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function)
 # GNU General Public License v3.0+
 # This file is part of Ansible
 # (c) 2020, Gluware Inc.
@@ -8,15 +7,7 @@ from __future__ import (absolute_import, division, print_function)
 # the Free Software Foundation.
 # See https://www.gnu.org/licenses/gpl-3.0.txt
 
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
-import os
-import json
-import re
-import urllib.error as urllib_error
-import http.client as httplib
-import socket
-from ansible.module_utils.urls import Request
-from ansible.module_utils.basic import AnsibleModule
+
 ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'status': ['stableinterface'],
                     'supported_by': 'Gluware Inc'}
@@ -59,6 +50,17 @@ EXAMPLES = r'''
     glu_device_id: "340b28a3-72b9-4708-852e-9c7490e2e650"
     gluware_control: "{{control}}"
 '''
+
+from __future__ import (absolute_import, division, print_function)
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+import os
+import json
+import re
+import urllib.error as urllib_error
+import http.client as httplib
+import socket
+from ansible.module_utils.urls import Request
+from ansible.module_utils.basic import AnsibleModule
 
 try:
     from urlparse import urljoin
