@@ -85,6 +85,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    
+      - name: Install dependencies
+        run: pip install requests
       # Run sanity tests inside a Docker container.
       # The docker container has all the pinned dependencies that are
       # required and all Python versions Ansible supports.
