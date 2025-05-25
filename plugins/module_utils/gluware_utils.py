@@ -43,7 +43,8 @@ class GluwareAPIClient:
         except requests.RequestException as err:
             raise Exception("GET request to {} failed: {}".format(url, err))
 
-    def gluware_common_params(self):
+    @staticmethod
+    def gluware_common_params():
         return dict(
             org_name=dict(type='str', required=False),
             name=dict(type='str', required=False),
