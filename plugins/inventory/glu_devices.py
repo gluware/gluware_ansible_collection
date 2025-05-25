@@ -100,7 +100,6 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
----
 #
 # Minimal Configuration for *glu_devices.yml files where no GLU_CONTROL_* environment variables are defined.
 plugin: glu_devices
@@ -108,7 +107,6 @@ host: 'https://10.0.0.1'
 username: <user name in Gluware Control system for device API calls>
 password: <password for user name>
 
----
 #
 # Configuration to use a Gluware Control system that has a self-signed certificate.
 plugin: gluware.control.glu_devices
@@ -116,7 +114,6 @@ host: 'https://10.0.0.1'
 username: <user name in Gluware Control system for device API calls>
 password: <password for user name>
 trust_any_host_https_certs: True
----
 
 #
 # Configuration to map the Gluware device attribute 'discoveredSerialNumber' to the Ansible host variable 'serial_num'
@@ -128,7 +125,6 @@ trust_any_host_https_certs: True
 compose:
     serial_num : discoveredSerialNumber
 
----
 #
 # Configuration to have Gluware Control devices grouped under the value custom attribute 'Area' where 'Area' is also the parent group.
 plugin: glu_devices
@@ -140,8 +136,6 @@ keyed_groups:
     - key: Area
       separator: ''
       parent_group: Area
-
----
 
 #
 # Configuration to have Gluware Control devices grouped under 'front_devices' where the text 'Front' is found in the 'Area' custom attribute.

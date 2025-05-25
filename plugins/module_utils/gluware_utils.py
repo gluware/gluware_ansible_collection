@@ -65,7 +65,7 @@ class GluwareAPIClient:
     def _get_device_id(self, name, org_name):
         org_list = self._get_org_name(org_name)
         if not org_list:
-            raise Exception(f"No organization found with name {org_name}")
+            raise Exception("No organization found with name {}".format(org_name))
         org_id = org_list[0].get('id')
         url = urljoin(self.api_url, '/api/devices?orgId=' + org_id)
         try:
