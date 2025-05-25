@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 # GNU General Public License v3.0+
 # This file is part of Ansible
 # (c) 2020, Gluware Inc.
@@ -205,7 +206,8 @@ def run_module():
         module.fail_json(msg=error_msg, changed=False)
 
     if response.status != 204:
-        error_msg = f"Unexpected response from Gluware Control: HTTP {response.status} - {response.reason}"
+        error_msg = ("Unexpected response from Gluware Control: HTTP {} - {}".format
+            (response.status, response.reason))
         module.fail_json(msg=error_msg, changed=False)
     result = dict(changed=True)
     module.exit_json(**result)

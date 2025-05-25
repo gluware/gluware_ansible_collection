@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 # GNU General Public License v3.0+
 # This file is part of Ansible
 # (c) 2020, Gluware Inc.
