@@ -85,7 +85,7 @@ class GluwareAPIClient:
                         return device
             else:
                 raise Exception(
-                    f"Device '{name}' not found in org '{org_name}'")
+                    "Device '{}' not found in org '{}'".format(name, org_name))
 
         except requests.RequestException as err:
-            raise Exception(f"GET request to {url} failed: {err}")
+            raise Exception("GET request to '{}' failed: '{}'".format(url, err))
