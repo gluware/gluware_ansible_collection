@@ -20,7 +20,7 @@ DOCUMENTATION = '''
     - By default this module will use device_id parameter to find the device in Gluware.
     - This module supports specifying the friendly name of the device if the organization name
       is specified as well instead of supplying the device_id parameter.
-    version_added: '2.8'
+    version_added: '2.8.0'
     author:
     - John Anderson (@gluware-inc)
     - Oleg Gratwick (@ogratwick-gluware)
@@ -44,7 +44,7 @@ EXAMPLES = r'''
     # Trigger a Gluware Control audit on the current captured config for the current device.
     #
 - name: Creating a audit on the current captured config for the current device
-    glu_audit_config:
+  glu_audit_config:
     gluware_control: "{{control}}"
     glu_device_id: "{{ glu_device_id }}"
     description: "Checking config for correct NTP Server"

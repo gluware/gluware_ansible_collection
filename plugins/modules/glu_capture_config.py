@@ -20,7 +20,7 @@ DOCUMENTATION = '''
     - By default this module will use device_id parameter to find the device in Gluware.
     - This module supports specifying the friendly name of the device if the organization name
       is specified as well instead of supplying the device_id parameter.
-    version_added: '2.8'
+    version_added: '2.8.0'
     author:
     - John Anderson (@gluware-inc)
     - Oleg Gratwick (@ogratwick-gluware)
@@ -35,14 +35,14 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
-    #
-    # Trigger a Gluware Control config capture for the current device
-    #
-    - name: Capture Config
-      gluware_inc.control.glu_capture_config:
-        gluware_control: "{{control}}"
-        description: "Ansible Snapshot"
-        device_id: "{{ glu_device_id }}"
+#
+# Trigger a Gluware Control config capture for the current device
+#
+- name: Capture Config
+  gluware_inc.control.glu_capture_config:
+    gluware_control: "{{control}}"
+    description: "Ansible Snapshot"
+    device_id: "{{ glu_device_id }}"
 
 '''
 

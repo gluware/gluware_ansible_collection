@@ -14,14 +14,14 @@ ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    module: glu_run_discover_device_attributes 
+    module: glu_run_discover_device_attributes
     short_description: Perform device discover action on Gluware device to update attributes
     description:
         - Runs device discover action on specified devices in the Ansible playbook.
         - By default this module will use device_id parameter to find the device in Gluware.
         - This module supports specifying the friendly name of the device if the organization name
           is specified as well instead of supplying the device_id parameter.
-    version_added: '2.8'
+    version_added: '2.8.0'
     author:
     - John Anderson (@gluware-inc)
     - Oleg Gratwick (@ogratwick-gluware)
@@ -37,17 +37,17 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
-    #
-    # Trigger a Gluware Control discover device attributes for the current device
-    #
+#
+# Trigger a Gluware Control discover device attributes for the current device
+#
 - name: Discover device properties
-    gluware_inc.control.glu_run_discover_device_attributes:
+  gluware_inc.control.glu_run_discover_device_attributes:
     org_name: "gluware_organization"
     name: "{{inventory_hostname}}"
     gluware_control: "{{control}}"
 
 - name: Discover device properties
-    gluware_inc.control.glu_run_discover_device_attributes:
+  gluware_inc.control.glu_run_discover_device_attributes:
     glu_device_id: "340b28a3-72b9-4708-852e-9c7490e2e650"
     gluware_control: "{{control}}"
 '''
