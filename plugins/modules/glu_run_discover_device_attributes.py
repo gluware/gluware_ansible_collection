@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import (absolute_import, division, print_function)
 # GNU General Public License v3.0+
 # This file is part of Ansible
 # (c) 2020, Gluware Inc.
@@ -44,7 +45,6 @@ EXAMPLES = r'''
     gluware_control: "{{control}}"
 '''
 
-from __future__ import (absolute_import, division, print_function)
 from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
 import os
 import json
