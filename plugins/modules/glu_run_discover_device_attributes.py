@@ -22,12 +22,13 @@ ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    module: glu_run_discover_device_attributes 
+    module: glu_run_discover_device_attributes
     short_description: Perform device discover action on Gluware device to update attributes
     description:
         - Runs device discover action on specified devices in the Ansible playbook.
         - By default this module will use device_id parameter to find the device in Gluware.
-        - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
+        - This module supports specifying the friendly name of the device if the organization name
+          is specified as well instead of supplying the device_id parameter.
     version_added: '2.8'
     author:
     - John Anderson (@gluware-inc)
@@ -156,15 +157,14 @@ def run_module():
     # Make the actual api call.
     try:
         response = request_handler.post(api_url, data=http_body)
-    except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError)\
-    as e2:
+    except (ConnectionError, httplib.HTTPException, 
+            socket.error, urllib_error.URLError) as e2:
         error_msg = 'Gluware Control call failed: {msg}'.format(msg=e2)
         module.fail_json(msg=error_msg, changed=False)
 
     # Check for 204 No Content response
     if response.status != 204:
         error_msg = "Unexpected response from Gluware Control: HTTP {} - {}".format(response.status, response.reason)
-
 
     result = dict(changed=True)
     module.exit_json(**result)

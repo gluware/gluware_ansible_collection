@@ -43,7 +43,7 @@ class GluwareAPIClient:
             return response.json()
         except requests.RequestException as err:
             raise Exception("GET request to {} failed: {}".format(url, err))
-        
+
     def gluware_common_params():
         return dict(
             org_name=dict(type='str', required=False),
@@ -61,7 +61,7 @@ class GluwareAPIClient:
                 )
             )
         )
-    
+
     def _get_device_id(self, name, org_name):
         org_list = self._get_org_name(org_name)
         if not org_list:

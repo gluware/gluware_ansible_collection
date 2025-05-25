@@ -27,7 +27,8 @@ DOCUMENTATION = '''
     description:
     - For the current Gluware device trigger a audit on the current captured config in Gluware Control.
     - By default this module will use device_id parameter to find the device in Gluware.
-    - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
+    - This module supports specifying the friendly name of the device if the organization name
+      is specified as well instead of supplying the device_id parameter.
     version_added: '2.8'
     author:
     - John Anderson (@gluware-inc)
@@ -104,7 +105,6 @@ def run_module():
         if not api_dict[key]:
             module.fail_json(msg="Missing required connection parameter: {}".format(key), changed=False)
 
-
     api_host = api_dict['host']
     if not re.match('(?:http|https)://', api_host):
         api_host = 'https://{host}'.format(host=api_host)
@@ -168,8 +168,7 @@ def run_module():
                 audit_policy_id = resp.get('id')
     except (ValueError, TypeError) as e:
         error_msg = 'Gluware Control call getting audit policy response failed to be parsed ' \
-        'as JSON: {msg}'.format(
-            msg=e)
+        'as JSON: {msg}'.format(msg=e)
         module.fail_json(msg=error_msg, changed=False)
 
     if len(array_response) == 0:

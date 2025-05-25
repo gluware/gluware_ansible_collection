@@ -27,7 +27,8 @@ DOCUMENTATION = '''
     description:
     - For the current Gluware device trigger a capture config in Gluware Control.
     - By default this module will use device_id parameter to find the device in Gluware.
-    - This module supports specifying the friendly name of the device if the organization name is specified as well instead of supplying the device_id parameter.  
+    - This module supports specifying the friendly name of the device if the organization name
+      is specified as well instead of supplying the device_id parameter.
     version_added: '2.8'
     author:
     - John Anderson (@gluware-inc)
