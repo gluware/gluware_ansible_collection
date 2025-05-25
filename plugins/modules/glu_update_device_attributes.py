@@ -14,7 +14,7 @@ ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    module: glu_run_discover_device_attributes
+    module: glu_update_device_attributes
     short_description: Perform device discover action on Gluware device to update attributes
     description:
         - Runs device discover action on specified devices in the Ansible playbook.
