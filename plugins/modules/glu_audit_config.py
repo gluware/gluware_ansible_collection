@@ -50,7 +50,6 @@ EXAMPLES = r'''
     glu_device_id: "{{ glu_device_id }}"
     description: "Checking config for correct NTP Server"
     audit_policy: "Data Center NTP Server Audit"
-
 '''
 
 from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient

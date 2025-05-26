@@ -44,7 +44,6 @@ EXAMPLES = r'''
     gluware_control: "{{control}}"
     description: "Ansible Snapshot"
     device_id: "{{ glu_device_id }}"
-
 '''
 
 from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
