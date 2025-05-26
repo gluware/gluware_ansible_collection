@@ -85,7 +85,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Install dependencies
         run: python -m pip install requests
       # Run sanity tests inside a Docker container.
