@@ -102,80 +102,89 @@ DOCUMENTATION = '''
 EXAMPLES = r'''
 #
 # Minimal Configuration for *glu_devices.yml files where no GLU_CONTROL_* environment variables are defined.
-plugin: glu_devices
-host: 'https://10.0.0.1'
-username: <user name in Gluware Control system for device API calls>
-password: <password for user name>
+Example1:
+    plugin: glu_devices
+    host: 'https://10.0.0.1'
+    username: <user name in Gluware Control system for device API calls>
+    password: <password for user name>
 
 #
 # Configuration to use a Gluware Control system that has a self-signed certificate.
-plugin: gluware.control.glu_devices
-host: 'https://10.0.0.1'
-username: <user name in Gluware Control system for device API calls>
-password: <password for user name>
-trust_any_host_https_certs: True
+Example2:
+    plugin: gluware.control.glu_devices
+    host: 'https://10.0.0.1'
+    username: <user name in Gluware Control system for device API calls>
+    password: <password for user name>
+    trust_any_host_https_certs: true
 
 #
 # Configuration to map the Gluware device attribute 'discoveredSerialNumber' to the Ansible host variable 'serial_num'
-plugin: glu_devices
-host: 'https://10.0.0.1'
-username: <user name in Gluware Control system for device API calls>
-password: <password for user name>
-trust_any_host_https_certs: True
-compose:
-    serial_num : discoveredSerialNumber
+Example3:
+    plugin: glu_devices
+    host: 'https://10.0.0.1'
+    username: <user name in Gluware Control system for device API calls>
+    password: <password for user name>
+    trust_any_host_https_certs: true
+    compose:
+        serial_num: discoveredSerialNumber
 
 #
 # Configuration to have Gluware Control devices grouped under the value custom attribute 'Area' where 'Area' is also the parent group.
-plugin: glu_devices
-host: 'https://10.0.0.1'
-username: <user name in Gluware Control system for device API calls>
-password: <password for user name>
-trust_any_host_https_certs: True
-keyed_groups:
-    - key: Area
-      separator: ''
-      parent_group: Area
+
+Example4:
+    plugin: glu_devices
+    host: 'https://10.0.0.1'
+    username: <user name in Gluware Control system for device API calls>
+    password: <password for user name>
+    trust_any_host_https_certs: true
+    keyed_groups:
+        - key: Area
+          separator: ''
+          parent_group: Area
 
 #
 # Configuration to have Gluware Control devices grouped under 'front_devices' where the text 'Front' is found in the 'Area' custom attribute.
-plugin: glu_devices
-host: 'https://10.0.0.1'
-username: <user name in Gluware Control system for device API calls>
-password: <password for user name>
-trust_any_host_https_certs: True
-groups:
-    front_devices: "'Front' in Area"
-#Advanced example for composition
-plugin: glu_devices
-host: 'https://10.0.0.1'
-username: <user name in Gluware Control system for device API calls>
-password: <password for user name>
-trust_any_host_https_certs: True
-compose:
-    glu_serial_num : discoveredSerialNumber
-    glu_asset_tag : Asset Tag
-    glu_audit_status : auditStatus
-    glu_drift_status : driftStatus
-    glu_critical_adv : custFields["Critical Advisories"]
-    glu_discovery_status : discoveryStatus
-    glu_access_status : accessStatus
-    glu_connection_method : connectionMethod
-    glu_description : "description"
-    glu_discovered_type : discoveredTypeBase
-    glu_environment : environment
-    glu_name : "name"
-    glu_props_domains : nodeProperties.Domains
-    glu_props_assembly : nodeProperties["Assembly Policy"]
-    glu_props_prov_summary : nodeProperties["Feature Provisioning Summary"]
-    glu_org_id : orgId
-    glu_conn_ip : connectionInformation.ip
-    glu_conn_type : connectionInformation.type
-    glu_site_code : sideCodeName
-    glu_site_name : sideName
-    glu_creds_rule : credsName
-    glu_props_licenses : discoveredLicenses
 
+Example5:
+    plugin: glu_devices
+    host: 'https://10.0.0.1'
+    username: <user name in Gluware Control system for device API calls>
+    password: <password for user name>
+    trust_any_host_https_certs: true
+    groups:
+        front_devices: "'Front' in Area"
+
+# Advanced example for composition
+
+Example6:
+    plugin: glu_devices
+    host: 'https://10.0.0.1'
+    username: <user name in Gluware Control system for device API calls>
+    password: <password for user name>
+    trust_any_host_https_certs: true
+    compose:
+        glu_serial_num: discoveredSerialNumber
+        glu_asset_tag: Asset Tag
+        glu_audit_status: auditStatus
+        glu_drift_status: driftStatus
+        glu_critical_adv: custFields["Critical Advisories"]
+        glu_discovery_status: discoveryStatus
+        glu_access_status: accessStatus
+        glu_connection_method: connectionMethod
+        glu_description: "description"
+        glu_discovered_type: discoveredTypeBase
+        glu_environment: environment
+        glu_name: "name"
+        glu_props_domains: nodeProperties.Domains
+        glu_props_assembly: nodeProperties["Assembly Policy"]
+        glu_props_prov_summary: nodeProperties["Feature Provisioning Summary"]
+        glu_org_id: orgId
+        glu_conn_ip: connectionInformation.ip
+        glu_conn_type: connectionInformation.type
+        glu_site_code: sideCodeName
+        glu_site_name: sideName
+        glu_creds_rule: credsName
+        glu_props_licenses: discoveredLicenses
 '''
 
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
