@@ -14,42 +14,93 @@ ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    module: glu_audit_config
-    short_description: Run a audit on device configuration of the device
-    description:
-    - For the current Gluware device trigger an audit on the current captured config in Gluware Control.
-    - By default this module will use device_id parameter to find the device in Gluware.
-    - This module supports specifying the friendly name of the device if the organization name
-      is specified as well instead of supplying the device_id parameter.
-    version_added: '2.8.0'
-    author:
-    - John Anderson (@gluware-inc)
+  module: glu_audit_config_batch
+  short_description: Run a single audit device configuration execution on multiple Gluware devices
+  description:
+    - Triggers an audit on the current captured config in Gluware Control for multiple devices in one execution.
+    - If able to execute audit on any of the devices specified will return as successful.
+    - Provide C(glu_device_ids), or provide C(glu_device_names) together with C(org_name).
+  version_added: '2.9.0'
+  author:
     - Oleg Gratwick (@ogratwick-gluware)
-    options:
-        description:
-            description:
-            - Execution title of the audit.
-            type: str
-            required: True
-        audit_policy:
-            description:
-            - Audit Policy Name as displayed in Gluware Config Drift & Audit.
-            type: str
-            required: True
-    extends_documentation_fragment:
-    - gluware_inc.control.gluware_control
+  options:
+    description:
+      description:
+        - Execution title of the audit.
+      type: str
+      required: True
+    audit_policy:
+      description:
+        - Audit policy name as displayed in Gluware Config Drift & Audit application.
+      type: str
+      required: True
+    gluware_control:
+      description:
+        - Connection details for the Gluware Control platform.
+      type: dict
+      required: True
+      suboptions:
+        host:
+          description: Hostname or IP address of the Gluware Control server.
+          type: str
+        username:
+          description: Username for authentication with Gluware Control.
+          type: str
+        password:
+          description: Password for authentication with Gluware Control.
+          type: str
+        trust_any_host_https_certs:
+          description: Bypass HTTPS certificate verification.
+          type: bool
+          default: False
+    org_name:
+      description:
+        - Organization name the devices are in within Gluware.
+        - Required when using C(glu_device_names).
+      type: str
+      required: False
+    glu_device_ids:
+      description:
+        - List of device IDs within Gluware Control.
+        - The C(glu_devices) inventory plugin may supply this automatically.
+      type: list
+      elements: str
+      required: False
+    glu_device_names:
+      description:
+        - Target device names within Gluware Control.
+        - Must be used with C(org_name).
+      type: list
+      elements: str
+      required: False
+    timeout:
+      description:
+        - Amount of time in seconds to wait for the execution to complete.
+      type: int
+      default: 60
+      required: False
 '''
 
 EXAMPLES = r'''
-#
-# Trigger a Gluware Control audit on the current captured config for the current device.
-#
-- name: Creating an audit on the current captured config for the current device
-  glu_audit_config:
-    gluware_control: "{{control}}"
-    glu_device_id: "{{ glu_device_id }}"
-    description: "Checking config for correct NTP Server"
-    audit_policy: "Data Center NTP Server Audit"
+- name: Collect all device names from hosts in this play
+  run_once: true
+  delegate_to: localhost
+  set_fact:
+    all_device_names: >-
+      {{ ansible_play_hosts
+         | map('extract', hostvars, 'glu_name')
+         | select('defined')
+         | list }}
+
+- name: Trigger ONE Gluware audit for ALL devices
+  run_once: true
+  delegate_to: localhost
+  gluware_inc.control.glu_audit_config_batch:
+    org_name: "{{ org_name }}"
+    gluware_control: "{{ control }}"
+    description: "{{ description }}"
+    audit_policy: "{{ audit_policy }}"
+    glu_device_names: "{{ all_device_names }}"
 '''
 
 RETURN = r'''
@@ -77,28 +128,49 @@ from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils 
 
 
 def run_module():
-    module_args = GluwareAPIClient.gluware_common_params()
-    module_args.update(dict(
+    module_args = dict(
+        gluware_control=dict(
+            type='dict',
+            required=True,
+            options=dict(
+                host=dict(type='str', required=False),
+                username=dict(type='str', required=False),
+                password=dict(type='str', required=False, no_log=True),
+                trust_any_host_https_certs=dict(type='bool', required=False, default=False),
+            ),
+        ),
+        org_name=dict(type='str', required=False),
+        glu_device_ids=dict(type='list', elements='str', required=False),
+        glu_device_names=dict(type='list', elements='str', required=False),
         description=dict(type='str', required=True),
         audit_policy=dict(type='str', required=True),
-    ))
+        timeout=dict(type='int', required=False, default=60)
+    )
 
     module = AnsibleModule(
         argument_spec=module_args,
-        required_one_of=[['glu_device_id', 'org_name']],
-        mutually_exclusive=[['glu_device_id', 'name']],
+        required_one_of=[['glu_device_ids', 'glu_device_names']],
+        mutually_exclusive=[['glu_device_ids', 'glu_device_names']],
         supports_check_mode=False
     )
 
     timeout = module.params.get('timeout') or 60
     org_name = module.params.get('org_name')
-    name = module.params.get('name')
+    device_names = module.params.get('glu_device_names')
     audit_policy = module.params.get('audit_policy')
     description = module.params.get('description')
 
-    glu_device_id = module.params.get('glu_device_id') or ""
+    # Resolve devices to IDs
+    if module.params.get('glu_device_ids'):
+        glu_device_ids = module.params.get('glu_device_ids')
+        if device_names:
+            module.warn("When 'glu_device_ids' is specified, 'glu_device_names' will be ignored.")
+    else:
+        glu_device_ids = []
+        if not org_name or not device_names:
+            module.fail_json(msg="Both 'org_name' and 'glu_device_names' are required when 'glu_device_ids' is not provided.")
 
-    # Connection info from params or environment
+    # Gather connection info from parameters or environment
     user_params = module.params.get('gluware_control') or {}
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
@@ -118,7 +190,7 @@ def run_module():
 
     # Build headers and validate_certs consistent with fetch_url usage
     validate_certs = not _to_bool(api_dict['trust_any_host_https_certs'])
-    module.params['validate_certs'] = validate_certs  # let fetch_url pick it up
+    module.params['validate_certs'] = validate_certs
 
     base_headers = {'Content-Type': 'application/json'}
     base_headers.update(_basic_auth_header(api_dict['username'], api_dict['password']))
@@ -131,78 +203,60 @@ def run_module():
         "headers": base_headers
     }
 
-    # Resolve device id if needed
-    if glu_device_id:
-        if name:
-            module.warn("When 'glu_device_id' is specified, 'name' must not be set. Only using glu_device_id.")
-    else:
-        if not org_name or not name:
-            module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
-        glu_api_for_lookup = GluwareAPIClient(request_payload, api_host)
-        glu_device = glu_api_for_lookup._get_device_id(name, org_name)
-        glu_device_id = glu_device.get('id')
-
-    if not glu_device_id:
-        module.fail_json(msg="No Gluware ID found for device", changed=False)
-
-    # Create API client (used for work polling/output and org/policy lookup)
+    # Gluware client (used for name/ID resolution + work poll/output)
     glu_api = GluwareAPIClient(request_payload, api_host)
 
-    # Resolve org id (kept consistent with original behavior)
+    # Resolve names -> ids if needed
+    if not glu_device_ids:
+        glu_device_ids = glu_api._get_device_ids(device_names, org_name)
+
+    # Resolve org id
     glu_org_list = glu_api._get_org_name(org_name)
     if not glu_org_list:
         module.fail_json(msg="No organization found with name {}".format(org_name))
     org_id = glu_org_list[0].get('id')
 
-    # Get audit policies for the org
-    policies_url = urljoin(api_host, '/api/audit/policies?orgId=' + org_id)
-    pol_res = http_request(module, policies_url, "GET", headers=base_headers)
-    if pol_res["status"] not in (200, 204):
+    # Find policy id
+    api_url_policies = urljoin(api_host, '/api/audit/policies?orgId=' + org_id)
+    result = http_request(module, api_url_policies, "GET", headers=base_headers)
+    if result["status"] not in (200, 204):
         module.fail_json(
             msg="Unexpected response from Gluware Control (policies): HTTP {} - {}".format(
-                pol_res["status"], pol_res.get("reason", "")
+                result["status"], result.get("reason", "")
             ),
             changed=False
         )
 
     audit_policy_id = None
     try:
-        payload = json.loads(pol_res["body"] or "[]")
+        payload = json.loads(result["body"] or "[]")
         for resp in payload or []:
             if resp.get('name') == audit_policy:
                 audit_policy_id = resp.get('id')
                 break
     except (ValueError, TypeError) as e:
-        module.fail_json(
-            msg='Gluware Control policies response failed to parse as JSON: {}'.format(e),
-            changed=False
-        )
-
-    if not payload:
-        module.fail_json(msg='No audit policy was found for the name: "{}"'.format(audit_policy), changed=False)
+        module.fail_json(msg='Gluware Control policies response failed to parse as JSON: {}'.format(e), changed=False)
 
     if not audit_policy_id:
         module.fail_json(msg='No audit policy id was found for the name: "{}"'.format(audit_policy), changed=False)
 
-    # Execute audit
-    execute_url = urljoin(api_host, '/api/audit/execute')
+    api_url_execute = urljoin(api_host, '/api/audit/execute')
     api_data = {
         "name": description,
-        "deviceIds": [glu_device_id],
+        "deviceIds": glu_device_ids,
         "policyId": audit_policy_id,
         "capture": False,
         "trackProgress": "true"
     }
-    exec_res = http_request(module, execute_url, "POST", payload=api_data, headers=base_headers)
+
+    exec_res = http_request(module, api_url_execute, "POST", payload=api_data, headers=base_headers)
     if exec_res["status"] not in (200, 201, 202, 204):
-        # Try to surface server-provided body if present
         body_txt = exec_res.get("body", "") or exec_res.get("reason", "")
         module.fail_json(
             msg="Unexpected response from Gluware Control (execute): HTTP {} - {}".format(exec_res["status"], body_txt),
             changed=False
         )
 
-    # Parse work id
     try:
         work_json = json.loads(exec_res["body"] or "{}")
     except Exception:
@@ -212,7 +266,7 @@ def run_module():
     if not work_id:
         module.fail_json(msg="Gluware Control did not return a workId", changed=False)
 
-    # Poll for completion and fetch output
+    # Poll for completion
     work_state = glu_api._get_work_status(work_id, timeout)
 
     if work_state == "SUCCESSFUL":

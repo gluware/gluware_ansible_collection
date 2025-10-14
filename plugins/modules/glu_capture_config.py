@@ -31,6 +31,12 @@ DOCUMENTATION = '''
             - Name to associate snapshot with.
             type: str
             required: False
+        default:
+            description:
+            - Set the latest snapshot to default snapshot
+            type: bool
+            required: False
+            default: False
     extends_documentation_fragment:
     - gluware_inc.control.gluware_control
 '''
@@ -46,47 +52,52 @@ EXAMPLES = r'''
     device_id: "{{ glu_device_id }}"
 '''
 
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+RETURN = r'''
+msg:
+  description: Gluware snapshot output summary
+  returned: always
+  type: dict
+'''
+
 import os
-import json
 import re
-import urllib.error as urllib_error
-import http.client as httplib
-import socket
-from ansible.module_utils.urls import Request
+import json
+import base64
+
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.urls import fetch_url
+from ansible.module_utils.common.text.converters import to_text, to_bytes
+
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
 
 try:
-    from urlparse import urljoin
-except ImportError:
     from urllib.parse import urljoin
+except ImportError:
+    from urlparse import urljoin
 
 
 def run_module():
-
     # Module parameters
     module_args = GluwareAPIClient.gluware_common_params()
-    module_args.update(description=dict(type='str', required=False),)
-    # Initialize the AnsibleModule to use in communication from and to the
-    # code (playbook, etc) interacting with this module.
+    module_args.update(
+        description=dict(type='str', required=False),
+        default=dict(type='bool', required=False, default=False)
+    )
+
     module = AnsibleModule(
         argument_spec=module_args,
         required_one_of=[['glu_device_id', 'org_name']],
-        mutually_exclusive=[['glu_device_id', 'org_name']],
+        mutually_exclusive=[['glu_device_id', 'name']],
         supports_check_mode=False
     )
+    default = module.params.get('default') or False
+    timeout = module.params.get('timeout') or 60
     org_name = module.params.get('org_name')
     description = module.params.get('description')
     name = module.params.get('name')
-    if module.params.get('glu_device_id'):
-        glu_device_id = module.params.get('glu_device_id')
-    else:
-        glu_device_id = ""
-    # Gather connection info from parameters or environment
+    glu_device_id = module.params.get('glu_device_id') or ""
 
     user_params = module.params.get('gluware_control') or {}
-
-    # Figure out the Gluware Control connection information.
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
         'username': user_params.get('username') or os.environ.get('GLU_CONTROL_USERNAME'),
@@ -96,77 +107,176 @@ def run_module():
 
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
-            module.fail_json(
-                msg="Missing required connection parameter: {}".format(key), changed=False)
+            module.fail_json(msg="Missing required connection parameter: {}".format(key), changed=False)
 
-    # All the required values exist, so use the information in the file for the connection information.
-    api_host = api_dict.get('host')
-
-    # Make sure there is a http or https preference for the api_host
+    # Ensure scheme on host
     api_host = api_dict['host']
     if not re.match('(?:http|https)://', api_host):
         api_host = 'https://{host}'.format(host=api_host)
 
-    # Make sure the Content-Type is set correctly.. otherwise it defaults to application/x-www-form-urlencoded which
-    # causes a 400 from Gluware Control
-    http_headers = {
-        'Content-Type': 'application/json'
-    }
-    request_handler = Request(
-        url_username=api_dict['username'],
-        url_password=api_dict['password'],
-        validate_certs=not api_dict['trust_any_host_https_certs'],
-        force_basic_auth=True,
-        headers=http_headers
-    )
-    # Default result JSON object
-    get_device = True
+    # Build headers and validate_certs consistent with glu_rpa_workflow
+    validate_certs = not _to_bool(api_dict['trust_any_host_https_certs'])
+    module.params['validate_certs'] = validate_certs
 
+    base_headers = {'Content-Type': 'application/json'}
+    base_headers.update(_basic_auth_header(api_dict['username'], api_dict['password']))
+
+    request_payload = {
+        "url_username": api_dict['username'],
+        "url_password": api_dict['password'],
+        "validate_certs": validate_certs,
+        "force_basic_auth": True,
+        "headers": base_headers
+    }
+
+    # If deviceId not provided, resolve it via org/name
     if glu_device_id:
-        # Only glu_device_id should be used
-        if org_name or name:
-            module.warning_json(
-                msg="When 'glu_device_id' is specified, 'org_name' and 'name' must not be set. Only using glu_device_id")
+        if name:
+            module.warning_json(msg="When 'glu_device_id' is specified, 'name' must not be set. Only using glu_device_id")
     else:
-        # org_name and name must both be provided
         if not org_name or not name:
-            module.fail_json(
-                msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
-        request_payload = {
-            "url_username": api_dict['username'],
-            "url_password": api_dict['password'],
-            "validate_certs": not api_dict['trust_any_host_https_certs'],
-            "force_basic_auth": True,
-            "headers": http_headers
-        }
+            module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
         glu_api = GluwareAPIClient(request_payload, api_host)
         glu_device = glu_api._get_device_id(name, org_name)
-        # print(glu_device)
         glu_device_id = glu_device.get('id')
 
-    api_url = urljoin(api_host, '/api/snapshots/capture')
     if not glu_device_id:
         module.fail_json(msg="No Gluware ID found for device", changed=False)
-    # Create the body of the request.
+
+    # Create API client (needed for work polling regardless of how deviceId was obtained)
+    glu_api = GluwareAPIClient(request_payload, api_host)
+
+    # Build API URL and payload
+    api_url = urljoin(api_host, '/api/snapshots/capture')
     api_data = {
         "deviceIds": [glu_device_id],
-        "description": description
+        "description": description,
+        "trackProgress": "true"
     }
-    http_body = json.dumps(api_data)
 
-    # Make the actual api call.
+    # Make POST call via unified http_request
+    OK_STATUSES = (200, 201, 202, 204)
+    result = http_request(module, api_url, "POST", payload=api_data, headers=base_headers)
+    status = result["status"]
+
+    if status not in OK_STATUSES:
+        # Try to surface server-provided body if present
+        body_txt = result.get("body", "")
+        try:
+            body_json = json.loads(body_txt) if body_txt else {}
+        except Exception:
+            body_json = {"message": body_txt or result.get("reason", "")}
+        module.fail_json(
+            msg="Unexpected response from Gluware Control: HTTP {} - {}".format(status, body_json),
+            changed=False
+        )
+
+    # Response should contain workId array
     try:
-        response = request_handler.post(api_url, data=http_body)
-    except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
-        error_msg = 'Gluware Control call failed: {msg}'.format(msg=e2)
-        module.fail_json(msg=error_msg, changed=False)
+        work_json = json.loads(result["body"])
+    except Exception:
+        module.fail_json(msg="Unable to parse Gluware Control response body", changed=False)
 
-    # Check for 204 No Content response
-    if response.status != 204:
-        module.fail_json(msg="Unexpected response from Gluware Control: HTTP {} - {}".format(response.status, response.reason), changed=False)
+    try:
+        work_id = work_json[0]["workId"]
+    except Exception:
+        module.fail_json(msg="Gluware Control did not return a workId", changed=False)
 
-    result = dict(changed=True)
-    module.exit_json(**result)
+    # Poll for completion using shared client helpers
+    work_state = glu_api._get_work_status(work_id, timeout)
+    if work_state == "SUCCESSFUL":
+        job = glu_api._get_work_output(work_id, "capture")
+        merged = {}
+        merged.update(job)
+        if (merged["summary"]["successCount"] == 1):
+            if default:
+                glu_org_id = glu_api._get_org_name(org_name)
+                org_id = glu_org_id[0].get('id')
+                snapshots_url = urljoin(api_host, '/api/snapshots?orgId=' + org_id + '&deviceId=' + glu_device_id)
+                snapshots = http_request(module, snapshots_url, "GET", headers=base_headers)
+                snapshots_json = json.loads(snapshots["body"])
+                default_url = urljoin(api_host, '/api/snapshots/default')
+                default_payload = {
+                    "id": snapshots_json[-1]["id"]
+                }
+                default_update = http_request(module, default_url, "POST", headers=base_headers, payload=default_payload)
+                status_default = default_update["status"]
+                if status_default not in OK_STATUSES:
+                    # Try to surface server-provided body if present
+                    body_txt_def = default_update.get("body", "")
+                    try:
+                        body_json_def = json.loads(body_txt_def) if body_txt_def else {}
+                    except Exception:
+                        body_json_def = {"message": body_txt_def or default_update.get("reason", "")}
+                    module.fail_json(
+                        msg="Unexpected response from Gluware Control while attempting to set default \
+                        snapshot: HTTP {} - {}".format(status_default, body_json_def),
+                        changed=False
+                    )
+            module.exit_json(changed=True, msg=merged)
+        else:
+            module.fail_json(msg="Capture work did not complete successfully for device {}".format(glu_device_id), changed=False)
+    else:
+        module.fail_json(msg="Capture work did not complete successfully (state: {})".format(work_state), changed=False)
+
+
+def _to_bool(v):
+    if isinstance(v, bool):
+        return v
+    if v is None:
+        return False
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _basic_auth_header(username, password):
+    token = base64.b64encode(("%s:%s" % (username, password)).encode("utf-8")).decode("ascii")
+    return {"Authorization": "Basic " + token}
+
+
+def http_request(module, url, method, payload=None, headers=None):
+    """
+    Wrapper around Ansible's fetch_url that never raises for HTTP errors.
+    Auth is provided via Authorization header; no url_username/url_password.
+    Returns a dict: status/reason/body/response/info.
+    """
+    hdrs = dict(headers or {})
+    data = None
+    if payload is not None:
+        if isinstance(payload, (bytes, bytearray)):
+            data = payload
+        else:
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        hdrs.setdefault("Content-Type", "application/json")
+
+    resp, info = fetch_url(
+        module,
+        url,
+        data=data,
+        headers=hdrs,
+        method=method,
+        use_proxy=module.params.get("use_proxy", True),
+        timeout=module.params.get("timeout") or 60,
+    )
+
+    status = info.get("status")
+    reason = info.get("msg", "")
+
+    if resp is not None:
+        try:
+            body_bytes = resp.read()
+        except Exception:
+            body_bytes = to_bytes(info.get("body", "") or "")
+    else:
+        body_bytes = to_bytes(info.get("body", "") or info.get("exception", "") or info.get("msg", "") or "")
+    body = to_text(body_bytes, errors="ignore")
+
+    return {
+        "status": status,
+        "reason": reason,
+        "body": body,
+        "response": resp,
+        "info": info,
+    }
 
 
 def main():

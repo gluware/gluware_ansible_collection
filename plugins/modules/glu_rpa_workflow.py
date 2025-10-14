@@ -14,65 +14,75 @@ ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    module: glu_run_discover_device_attributes
-    short_description: Perform device discover action on Gluware device to update attributes
+    module: glu_rpa_workflow
+    short_description: Execute Gluware RPA Worfklow
     description:
-        - Runs device discover action on specified devices in the Ansible playbook.
-        - By default this module will use device_id parameter to find the device in Gluware.
-        - This module supports specifying the friendly name of the device if the organization name
-          is specified as well instead of supplying the device_id parameter.
+    - Execute a RPA workflow created in Gluware. Each device will execute a separate workflow instance.
+    - By default this module will use device_id parameter to find the device in Gluware.
+    - This module supports specifying the friendly name of the device if the organization name
+      is specified as well instead of supplying the device_id parameter.
     version_added: '2.8.0'
     author:
-    - John Anderson (@gluware-inc)
     - Oleg Gratwick (@ogratwick-gluware)
+    options:
+        input_parameters:
+            description:
+            - RPA workflow parameters to be supplied during execution of the workflow.
+            - The Org ID is not required to be supplied.
+            type: dict
+            required: False
+        workflow_name:
+            description:
+            - Display name of the workflow
+            type: str
+            required: True
     extends_documentation_fragment:
     - gluware_inc.control.gluware_control
-
 '''
 
 EXAMPLES = r'''
-    #
-    # Trigger a Gluware Control discover device attributes for the current device
-    #
-- name: Discover device properties
-  gluware_inc.control.glu_run_discover_device_attributes:
-    org_name: "gluware_organization"
-    name: "{{inventory_hostname}}"
+#
+# Trigger a Gluware Control config capture for the current device
+#
+- name: Execute RPA Workflow
+  gluware_inc.control.glu_rpa_workflow:
     gluware_control: "{{control}}"
-
-- name: Discover device properties
-  gluware_inc.control.glu_run_discover_device_attributes:
-    glu_device_id: "340b28a3-72b9-4708-852e-9c7490e2e650"
-    gluware_control: "{{control}}"
+    input_parameter:
+        param_one: param
+    device_id: "{{ glu_device_id }}"
+    workflow_name: "Example Workflow"
 '''
 
 RETURN = r'''
 msg:
-  description: Gluware device discovery output summary
+  description: Gluware snapshot output summary
   returned: always
   type: dict
 '''
 
 import os
-import re
 import json
+import re
 import base64
-
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils.common.text.converters import to_text, to_bytes
 
+from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+
 try:
-    from urllib.parse import urljoin
+    from urllib.parse import urljoin, urlencode
 except ImportError:
     from urlparse import urljoin
-
-from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils import GluwareAPIClient
+    from urllib import urlencode
 
 
 def run_module():
-
     module_args = GluwareAPIClient.gluware_common_params()
+    module_args.update(dict(
+        workflow_name=dict(type='str', required=True),
+        input_parameters=dict(type='dict', required=False)
+    ))
 
     module = AnsibleModule(
         argument_spec=module_args,
@@ -80,13 +90,20 @@ def run_module():
         mutually_exclusive=[['glu_device_id', 'name']],
         supports_check_mode=False
     )
-
     timeout = module.params.get('timeout') or 60
+    update_url = None
+    url_path = None
     org_name = module.params.get('org_name')
     name = module.params.get('name')
-    glu_device_id = module.params.get('glu_device_id') or ""
+    workflow_name = module.params.get('workflow_name')
+    if module.params.get('glu_device_id'):
+        glu_device_id = module.params.get('glu_device_id')
+    else:
+        glu_device_id = ""
+    # Gather connection info from parameters or environment
 
     user_params = module.params.get('gluware_control') or {}
+    input_parameters = module.params.get('input_parameters')
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
         'username': user_params.get('username') or os.environ.get('GLU_CONTROL_USERNAME'),
@@ -96,19 +113,20 @@ def run_module():
 
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
-            module.fail_json(msg="Missing required connection parameter: {}".format(key), changed=False)
-
-    # Ensure scheme on host
-    api_host = api_dict['host']
-    if not re.match(r'(?:http|https)://', api_host or ''):
-        api_host = 'https://{host}'.format(host=api_host)
+            module.fail_json(
+                msg="Missing required connection parameter: {}".format(key), changed=False)
 
     validate_certs = not _to_bool(api_dict['trust_any_host_https_certs'])
     module.params['validate_certs'] = validate_certs
+    api_host = api_dict.get('host')
+
+    api_host = api_dict['host']
+    if not re.match('(?:http|https)://', api_host):
+        api_host = 'https://{host}'.format(host=api_host)
 
     base_headers = {'Content-Type': 'application/json'}
     base_headers.update(_basic_auth_header(api_dict['username'], api_dict['password']))
-
+    OK_STATUSES = (200, 201, 202, 204)
     request_payload = {
         "url_username": api_dict['username'],
         "url_password": api_dict['password'],
@@ -116,14 +134,14 @@ def run_module():
         "force_basic_auth": True,
         "headers": base_headers
     }
-
     if glu_device_id:
         if name:
-            module.warn("When 'glu_device_id' is specified, 'name' must not be set. Only using glu_device_id")
-        glu_api = GluwareAPIClient(request_payload, api_host)
+            module.warning_json(
+                msg="When 'glu_device_id' is specified, 'name' must not be set. Only using glu_device_id")
     else:
         if not org_name or not name:
-            module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
+            module.fail_json(
+                msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
         glu_api = GluwareAPIClient(request_payload, api_host)
         glu_device = glu_api._get_device_id(name, org_name)
         glu_device_id = glu_device.get('id')
@@ -131,56 +149,54 @@ def run_module():
     if not glu_device_id:
         module.fail_json(msg="No Gluware ID found for device", changed=False)
 
-    api_url = urljoin(api_host, '/api/devices/discover')
-    api_data = {
-        "devices": [glu_device_id],
-        "trackProgress": "true"
-    }
+    glu_api = GluwareAPIClient(request_payload, api_host)
+    glu_org_id = glu_api._get_org_name(org_name)
+    org_id = glu_org_id[0].get('id')
 
-    OK_STATUSES = (200, 201, 202, 204)
-    res = http_request(module, api_url, "POST", payload=api_data, headers=base_headers)
-    if res["status"] not in OK_STATUSES:
-        body_txt = res.get("body", "") or res.get("reason", "")
+    api_url = urljoin(api_host, '/api/workflows')
+    params = {"orgId": org_id, "name": workflow_name}
+    query = urlencode(params)
+
+    workflow_url = api_url + ("?" + query if query else "")
+    glu_workflow = http_request(module, workflow_url, "GET", headers=base_headers)
+    workflow_info = json.loads(glu_workflow["body"])
+
+    if workflow_info and isinstance(workflow_info, list) and len(workflow_info) > 0:
+        if "name" in workflow_info[0] and workflow_info[0]["name"]:
+            workflow_id = workflow_info[0]["id"]
+            url_path = "/" + workflow_id + "/run"
+
+        else:
+            module.fail_json(msg="Unable to find specified workflow {} in the given organization {}".format(workflow_name, org_name))
+
+    else:
+        module.fail_json(msg="Unable to find specified workflow {} in the given organization {}".format(workflow_name, org_name))
+
+    data = {
+        "orgId": org_id,
+        "deviceIds": [glu_device_id]
+    }
+    if input_parameters:
+        data["inputParameters"] = input_parameters
+    update_url = api_url + url_path
+    result = http_request(module, update_url, "POST", headers=base_headers, payload=data)
+    status = result["status"]
+    if status not in OK_STATUSES:
+        message = json.loads(result["info"]["body"].decode("utf-8"))
         module.fail_json(
-            msg="Unexpected response from Gluware Control (discover): HTTP {} - {}".format(
-                res["status"], body_txt
-            ),
+            msg="Unexpected response from Gluware Control: HTTP {} - {}".format(status, message),
             changed=False
         )
-
-    try:
-        work_payload = json.loads(res["body"] or "{}")
-    except Exception:
-        module.fail_json(msg="Unable to parse Gluware Control response body", changed=False)
-
-    if isinstance(work_payload, list) and work_payload:
-        work_id = work_payload[0].get("workId")
-        work_json = work_payload
-    elif isinstance(work_payload, dict):
-        work_id = work_payload.get("workId")
-        work_json = work_payload
+    workflow_info = json.loads(result["body"])
+    rpa_workflow = glu_api._get_rpa_status(workflow_info, timeout)
+    if rpa_workflow["status"] == "COMPLETED":
+        result = dict(changed=True, msg=rpa_workflow)
+        module.exit_json(**result)
     else:
-        work_id = None
-        work_json = {}
-
-    if not work_id:
-        module.fail_json(msg="Gluware Control did not return a workId", changed=False)
-
-    # Poll for completion and fetch output
-    work_state = glu_api._get_work_status(work_id, timeout)
-
-    if work_state == "SUCCESSFUL":
-        job = glu_api._get_work_output(work_id, "discover")
-        merged = {}
-        merged.update(work_json if isinstance(work_json, dict) else {"work": work_json})
-        merged.update(job)
-        if (merged["summary"]["successCount"] == 1):
-            result = dict(changed=True, msg=merged)
-            module.exit_json(**result)
-        else:
-            module.fail_json(msg="Discover work did not complete successfully (state: {})".format(merged), changed=False)
-    else:
-        module.fail_json(msg="Discover work did not complete successfully (state: {})".format(work_state), changed=False)
+        module.fail_json(
+            msg="RPA Workflow {} has failed. Please check the Gluware logs.".format(workflow_name),
+            changed=False
+        )
 
 
 def _to_bool(v):
@@ -199,6 +215,7 @@ def _basic_auth_header(username, password):
 def http_request(module, url, method, payload=None, headers=None):
     """
     Wrapper around Ansible's fetch_url that never raises for HTTP errors.
+    Auth is provided via Authorization header; no url_username/url_password.
     Returns a dict: status/reason/body/response/info.
     """
     hdrs = dict(headers or {})
@@ -210,6 +227,7 @@ def http_request(module, url, method, payload=None, headers=None):
             data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         hdrs.setdefault("Content-Type", "application/json")
 
+    # Use only broadly-supported kwargs; validate_certs is picked from module.params
     resp, info = fetch_url(
         module,
         url,
@@ -222,7 +240,7 @@ def http_request(module, url, method, payload=None, headers=None):
 
     status = info.get("status")
     reason = info.get("msg", "")
-
+    # Prefer real body stream if available
     if resp is not None:
         try:
             body_bytes = resp.read()

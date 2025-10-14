@@ -45,4 +45,10 @@ options:
       - Target device name within Gluware Control.
     type: str
     required: False
+  timeout:
+    description:
+    - Amount of time in seconds to wait for the execution to complete.
+    type: int
+    default: 60
+    required: False
 '''

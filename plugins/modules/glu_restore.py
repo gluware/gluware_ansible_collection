@@ -14,41 +14,40 @@ ANSIBLE_METADATA = {'metadata_version': '1.1.0',
                     'supported_by': 'Gluware Inc'}
 
 DOCUMENTATION = '''
-    module: glu_run_discover_device_attributes
-    short_description: Perform device discover action on Gluware device to update attributes
+    module: glu_restore
+    short_description: Perform a device restore from backup for supported platforms in Gluware
     description:
-        - Runs device discover action on specified devices in the Ansible playbook.
-        - By default this module will use device_id parameter to find the device in Gluware.
-        - This module supports specifying the friendly name of the device if the organization name
-          is specified as well instead of supplying the device_id parameter.
+    - For the current Gluware device trigger a restore of a backup in Gluware Control.
+    - By default this module will use device_id parameter to find the device in Gluware.
+    - This module supports specifying the friendly name of the device if the organization name
+      is specified as well instead of supplying the device_id parameter.
     version_added: '2.8.0'
     author:
-    - John Anderson (@gluware-inc)
     - Oleg Gratwick (@ogratwick-gluware)
+    options:
+        backup_id:
+            description:
+            - Backup ID to restore device to.
+            type: str
+            required: True
     extends_documentation_fragment:
     - gluware_inc.control.gluware_control
-
 '''
 
 EXAMPLES = r'''
-    #
-    # Trigger a Gluware Control discover device attributes for the current device
-    #
-- name: Discover device properties
-  gluware_inc.control.glu_run_discover_device_attributes:
-    org_name: "gluware_organization"
+#
+# Trigger a Gluware Control restore for the current device
+#
+- name: Restore device from Backup
+  gluware_inc.control.glu_restore:
+    gluware_control: "{{control}}"
+    backup_id: "4c0731a2-555e-4747-9a3b-9a8ec622cf9a"
     name: "{{inventory_hostname}}"
-    gluware_control: "{{control}}"
-
-- name: Discover device properties
-  gluware_inc.control.glu_run_discover_device_attributes:
-    glu_device_id: "340b28a3-72b9-4708-852e-9c7490e2e650"
-    gluware_control: "{{control}}"
 '''
 
 RETURN = r'''
 msg:
-  description: Gluware device discovery output summary
+  description: Gluware restore output summary
   returned: always
   type: dict
 '''
@@ -72,7 +71,9 @@ from ansible_collections.gluware_inc.control.plugins.module_utils.gluware_utils 
 
 def run_module():
 
+    # Module parameters
     module_args = GluwareAPIClient.gluware_common_params()
+    module_args.update(backup_id=dict(type='str', required=True),)
 
     module = AnsibleModule(
         argument_spec=module_args,
@@ -83,9 +84,11 @@ def run_module():
 
     timeout = module.params.get('timeout') or 60
     org_name = module.params.get('org_name')
+    backup_id = module.params.get('backup_id')
     name = module.params.get('name')
     glu_device_id = module.params.get('glu_device_id') or ""
 
+    # Gather connection info from parameters or environment
     user_params = module.params.get('gluware_control') or {}
     api_dict = {
         'host': user_params.get('host') or os.environ.get('GLU_CONTROL_HOST'),
@@ -96,15 +99,17 @@ def run_module():
 
     for key in ['host', 'username', 'password']:
         if not api_dict[key]:
-            module.fail_json(msg="Missing required connection parameter: {}".format(key), changed=False)
+            module.fail_json(
+                msg="Missing required connection parameter: {}".format(key), changed=False)
 
     # Ensure scheme on host
     api_host = api_dict['host']
     if not re.match(r'(?:http|https)://', api_host or ''):
         api_host = 'https://{host}'.format(host=api_host)
 
+    # Build headers and validate_certs consistent with fetch_url usage
     validate_certs = not _to_bool(api_dict['trust_any_host_https_certs'])
-    module.params['validate_certs'] = validate_certs
+    module.params['validate_certs'] = validate_certs  # let fetch_url pick it up
 
     base_headers = {'Content-Type': 'application/json'}
     base_headers.update(_basic_auth_header(api_dict['username'], api_dict['password']))
@@ -117,45 +122,65 @@ def run_module():
         "headers": base_headers
     }
 
+    # Resolve device id if needed
     if glu_device_id:
         if name:
             module.warn("When 'glu_device_id' is specified, 'name' must not be set. Only using glu_device_id")
-        glu_api = GluwareAPIClient(request_payload, api_host)
     else:
         if not org_name or not name:
-            module.fail_json(msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
-        glu_api = GluwareAPIClient(request_payload, api_host)
-        glu_device = glu_api._get_device_id(name, org_name)
+            module.fail_json(
+                msg="Both 'org_name' and 'name' are required when 'glu_device_id' is not provided.")
+        glu_api_lookup = GluwareAPIClient(request_payload, api_host)
+        glu_device = glu_api_lookup._get_device_id(name, org_name)
         glu_device_id = glu_device.get('id')
 
     if not glu_device_id:
         module.fail_json(msg="No Gluware ID found for device", changed=False)
 
-    api_url = urljoin(api_host, '/api/devices/discover')
+    # Create API client (used for work polling/output)
+    glu_api = GluwareAPIClient(request_payload, api_host)
+
+    # Build API URL and payload
+    api_url = urljoin(api_host, '/api/devices/restore')
     api_data = {
-        "devices": [glu_device_id],
+        "deviceId": glu_device_id,
+        "backupId": backup_id,
         "trackProgress": "true"
     }
 
+    result = http_request(module, api_url, "POST", payload=api_data, headers=base_headers)
+    status = result["status"]
+
     OK_STATUSES = (200, 201, 202, 204)
-    res = http_request(module, api_url, "POST", payload=api_data, headers=base_headers)
-    if res["status"] not in OK_STATUSES:
-        body_txt = res.get("body", "") or res.get("reason", "")
-        module.fail_json(
-            msg="Unexpected response from Gluware Control (discover): HTTP {} - {}".format(
-                res["status"], body_txt
-            ),
-            changed=False
+    if status not in OK_STATUSES:
+        body_txt = result.get("body", "") or result.get("info", {}).get("body", "")
+        try:
+            body_json = json.loads(body_txt) if body_txt else {}
+        except Exception:
+            body_json = {}
+
+        api_msg = (
+            body_json.get("error", {}).get("message")
+            or body_json.get("message")
+            or result.get("reason", "Unexpected error")
         )
 
+        module.fail_json(
+            msg=api_msg,
+            changed=False,
+            status=status,
+            details=result.get("info", {})
+        )
+
+    # Parse work id (accept dict or list payloads)
     try:
-        work_payload = json.loads(res["body"] or "{}")
+        work_payload = json.loads(result["body"] or "{}")
     except Exception:
         module.fail_json(msg="Unable to parse Gluware Control response body", changed=False)
 
     if isinstance(work_payload, list) and work_payload:
         work_id = work_payload[0].get("workId")
-        work_json = work_payload
+        work_json = work_payload[0]
     elif isinstance(work_payload, dict):
         work_id = work_payload.get("workId")
         work_json = work_payload
@@ -170,17 +195,14 @@ def run_module():
     work_state = glu_api._get_work_status(work_id, timeout)
 
     if work_state == "SUCCESSFUL":
-        job = glu_api._get_work_output(work_id, "discover")
+        job = glu_api._get_work_output(work_id, "restore")
         merged = {}
-        merged.update(work_json if isinstance(work_json, dict) else {"work": work_json})
+        merged.update(work_json)
         merged.update(job)
-        if (merged["summary"]["successCount"] == 1):
-            result = dict(changed=True, msg=merged)
-            module.exit_json(**result)
-        else:
-            module.fail_json(msg="Discover work did not complete successfully (state: {})".format(merged), changed=False)
+        result = dict(changed=True, msg=merged)
+        module.exit_json(**result)
     else:
-        module.fail_json(msg="Discover work did not complete successfully (state: {})".format(work_state), changed=False)
+        module.fail_json(msg="Restore work did not complete successfully (state: {})".format(work_state), changed=False)
 
 
 def _to_bool(v):

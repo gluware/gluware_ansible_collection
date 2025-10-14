@@ -70,6 +70,11 @@ DOCUMENTATION = '''
                 - The Jinja2 expressions can use Gluware Control device attributes (including custom attributes).
             type: dict
             required: False
+        org_name:
+            description:
+            - Organization name the device is in within Gluware.
+            type: str
+            required: False
         groups:
             description:
                 - Define groups for a host based on Jinja2 conditionals.
@@ -97,6 +102,18 @@ DOCUMENTATION = '''
                 - The values of the dictionary are strings that specify the variable names on the host in Ansible.
             type: dict
             required: false
+        device_filters:
+            description:
+                - Dictionary of simple client-side filters applied to each device object
+                - after retrieval. Keys are device fields that are discovered.
+            type: dict
+            required: false
+        api_timeout:
+            description:
+              - HTTP request timeout (seconds) for Control API calls made by this plugin.
+            type: int
+            required: false
+            default: 60
 '''
 
 EXAMPLES = r'''
@@ -162,6 +179,9 @@ Example6:
     username: <user name in Gluware Control system for device API calls>
     password: <password for user name>
     trust_any_host_https_certs: true
+    api_timeout: 180
+    device_filters:
+        orgId: <organization id>
     compose:
         glu_serial_num: discoveredSerialNumber
         glu_asset_tag: Asset Tag
@@ -190,25 +210,19 @@ Example6:
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
 from ansible.module_utils._text import to_native
 from ansible.errors import AnsibleError
-import http.client as httplib
-import socket
-import urllib.error as urllib_error
-from requests.auth import HTTPBasicAuth
+
+# Use Ansible's HTTP client instead of 'requests'
+from ansible.module_utils.urls import Request, SSLValidationError, ConnectionError
 import json
 import re
 import os
-from urllib.error import URLError
+
 # Python 2/3 Compatibility
 try:
     from urlparse import urljoin
 except ImportError:
     from urllib.parse import urljoin
-HAS_REQUESTS = True
-try:
-    import requests
-    from requests.auth import HTTPBasicAuth
-except ImportError:
-    HAS_REQUESTS = False
+
 # Mapping between the discoveredOs variable and ansible_network_os
 DiscoveredOSToAnsibleNetworkOS = {
     'NX-OS': 'cisco.nxos.nxos',
@@ -230,11 +244,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
     def __init__(self):
         super(InventoryModule, self).__init__()
-
         self.group_prefix = 'glu_'
-        if not HAS_REQUESTS:
-            error_msg = ('requests module is not installed. Please install module to continue.')
-            raise AnsibleError(to_native(error_msg))
 
     @staticmethod
     def _convert_group_name(group_name):
@@ -244,38 +254,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         group_name = re.sub('[^a-zA-Z0-9]', '_', group_name)
         return group_name
 
-    def _api_call(self, request_handler, api_url, api_url_2):
-        '''
-            Make the api call for the api_url with the request_handler and on success return object with data.
-            If api_url fails then try api_url_2.
-        '''
-        # Make the actual api call.
-        try:
-            response = request_handler.get(api_url)
-        except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError):
-            # If the first call returns a URL error then try this second call.
-            try:
-                response = request_handler.get(api_url_2)
-            except (ConnectionError, httplib.HTTPException, socket.error, urllib_error.URLError) as e2:
-                error_msg = 'Gluware Control call2 failed: {msg}'.format(msg=e2)
-                raise AnsibleError(to_native(error_msg))
-
-        # Read in the JSON response to a object.
-        try:
-            read_response = response.read()
-            obj_response = json.loads(read_response)
-            return obj_response
-        except (ValueError, TypeError) as e:
-            error_msg = 'Gluware Control call response failed to be parsed as JSON: {msg}'.format(
-                msg=e)
-            raise AnsibleError(to_native(error_msg))
-
     def _update_inventory_obj(self, api_devices):
         '''
             Take the api_devices object and update the self.inventory object
         '''
-        # pprint.pprint(api_devices)
-
         option_compose = self.get_option('compose')
         option_groups = self.get_option('groups')
         option_keyed_groups = self.get_option('keyed_groups')
@@ -284,7 +266,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
             device_name = device_obj.get('name')
             # Set the glu_device_id to work with the gluware ansible modules.
             glu_device_id = device_obj.get('id')
-
+            if not self._device_passes_filters(device_obj):
+                continue
             # Try to used the discoveredOs from the device.
             #   If that is not found the try to use the ansible_network_os on the device.
             network_os = ''
@@ -295,7 +278,6 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
             if not network_os:
                 network_os = device_obj.get('ansible_network_os')
             if not network_os:
-
                 network_os = discovered_os
 
             # In case the ansible connection is overridden.
@@ -312,8 +294,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                     else:
                         connect_username = connection_info_obj.get('userName')
                         connect_password = connection_info_obj.get('password')
-                    connect_enable_password = connection_info_obj.get(
-                        'enablePassword')
+                    connect_enable_password = connection_info_obj.get('enablePassword')
 
                     # Special logic if password and enable password is not available.
                     if not connect_password:
@@ -325,11 +306,9 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                     if not self.inventory.get_host(device_name):
                         group = None
                         if network_os:
-                            group = self._convert_group_name(
-                                device_obj.get('discoveredOs'))
+                            group = self._convert_group_name(device_obj.get('discoveredOs'))
                             self.inventory.add_group(group)
-                        host = self.inventory.add_host(
-                            device_name, group, connect_port)
+                        host = self.inventory.add_host(device_name, group, connect_port)
 
                     site_path = device_obj.get('sitePath')
                     if site_path:
@@ -338,34 +317,27 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                         self.inventory.add_host(device_name, site_group)
 
                         # Set the ansible_network_os no matter what.  This is so it is not undefined in the playbook.
-                        self.inventory.set_variable(
-                            host, 'ansible_network_os', network_os)
+                        self.inventory.set_variable(host, 'ansible_network_os', network_os)
 
                         if connect_ip:
-                            self.inventory.set_variable(
-                                host, 'ansible_host', connect_ip)
+                            self.inventory.set_variable(host, 'ansible_host', connect_ip)
                         if connect_username:
-                            self.inventory.set_variable(
-                                host, 'ansible_user', connect_username)
+                            self.inventory.set_variable(host, 'ansible_user', connect_username)
                         if connect_password:
-                            self.inventory.set_variable(
-                                host, 'ansible_password', connect_password)
+                            self.inventory.set_variable(host, 'ansible_password', connect_password)
                         if ansible_connection:
-                            self.inventory.set_variable(
-                                host, 'ansible_connection', ansible_connection)
+                            self.inventory.set_variable(host, 'ansible_connection', ansible_connection)
 
                         # Gluware device id is set on this inventory item to be used with other Gluware modules.
                         if glu_device_id:
-                            self.inventory.set_variable(
-                                host, 'glu_device_id', glu_device_id)
+                            self.inventory.set_variable(host, 'glu_device_id', glu_device_id)
 
                         # For any device_obj properties that start with 'ansible_var_' add that variable (minus the 'ansible_var_' part) to the host.
                         for prop_name, prop_val in device_obj.items():
                             if prop_name.startswith('ansible_var_'):
                                 ansible_var = prop_name[len('ansible_var_'):]
                                 if ansible_var:
-                                    self.inventory.set_variable(
-                                        host, ansible_var, prop_val)
+                                    self.inventory.set_variable(host, ansible_var, prop_val)
 
                         # If there is a variable_map then look for the variable in the device_obj and assign it to the ansible_var_name to the host.
                         variable_map = self.get_option('variable_map')
@@ -373,18 +345,13 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                             for gluprop_name, ansible_var_name in variable_map.items():
                                 deviceprop_val = device_obj.get(gluprop_name)
                                 if deviceprop_val:
-                                    self.inventory.set_variable(
-                                        host, ansible_var_name, deviceprop_val)
+                                    self.inventory.set_variable(host, ansible_var_name, deviceprop_val)
                 if option_compose:
-                    self._set_composite_vars(
-                        option_compose, device_obj, device_name)
+                    self._set_composite_vars(option_compose, device_obj, device_name)
                 if option_groups:
-                    self._add_host_to_composed_groups(
-                        option_groups, device_obj, device_name)
+                    self._add_host_to_composed_groups(option_groups, device_obj, device_name)
                 if option_keyed_groups:
-                    self._add_host_to_keyed_groups(
-                        option_keyed_groups, device_obj, device_name)
-
+                    self._add_host_to_keyed_groups(option_keyed_groups, device_obj, device_name)
         # Finalize inventory
         self.inventory.reconcile_inventory()
 
@@ -404,10 +371,11 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
             The self.verify_file() was called first so state could have been set on the self object there
             that can be used here.
         '''
-
-# Use the super classes functionality to setup the self object correcly.
+        # Use the super classes functionality to setup the self object correctly.
         super(InventoryModule, self).parse(inventory, loader, path)
         self._read_config_data(path)
+        api_timeout = self.get_option('api_timeout')
+        self._device_filters = self.get_option('device_filters') or {}
 
         # Setup for the API call for the data for the inventory.
         api_host = self.get_option('host')
@@ -416,11 +384,6 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
         if not re.match('(?:http|https)://', api_host):
             api_host = 'https://{host}'.format(host=api_host)
-
-        # This api call is for Gluware Control 3.6 and greater.
-        api_url_1 = urljoin(api_host, '/api/devices?showPassword=true')
-        # This api call is for Gluware Control 3.5.
-        api_url_2 = urljoin(api_host, '/api/devices')
 
         api_user = self.get_option('username')
         if not api_user:
@@ -432,26 +395,113 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
         api_trust_https = self.get_option('trust_any_host_https_certs')
         if not api_trust_https:
-            api_trust_https = os.environ.get(
-                'GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS')
+            api_trust_https = os.environ.get('GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS')
 
-        api_devices = None
+        if (self.get_option('org_name')):
+            org_url = urljoin(api_host, '/api/organizations?name=' + self.get_option('org_name'))
+            org = make_authenticated_request(org_url, api_user, api_password,
+                                             validate_certs=not api_trust_https,
+                                             timeout=api_timeout)
+            org_obj = (_json_from_response(org, org_url))
+            org_id = (org_obj[0]['id'])
+            # This api call is for Gluware Control 3.6 and greater.
+            api_url_1 = urljoin(api_host, '/api/devices?showPassword=true' + '&orgId=' + org_id)
+            # This api call is for Gluware Control 3.5.
+            api_url_2 = urljoin(api_host, '/api/devices' + '&orgId=' + org_id)
+        else:
+            api_url_1 = urljoin(api_host, '/api/devices?showPassword=true')
+            # This api call is for Gluware Control 3.5.
+            api_url_2 = urljoin(api_host, '/api/devices')
+
         try:
-            with make_authenticated_request(api_url_1, api_user, api_password, not api_trust_https, timeout=30) as response:
-                api_devices = json.loads(response.text)
-        except URLError:
-            with make_authenticated_request(api_url_2, api_user, api_password, not api_trust_https, timeout=30) as response:
-                api_devices = json.loads(response.read())
+            resp1 = make_authenticated_request(api_url_1, api_user, api_password,
+                                               validate_certs=not api_trust_https,
+                                               timeout=api_timeout)
+            api_devices = _json_from_response(resp1, api_url_1)
+        except (SSLValidationError, ConnectionError) as e1:
+            try:
+                resp2 = make_authenticated_request(api_url_2, api_user, api_password,
+                                                   validate_certs=not api_trust_https,
+                                                   timeout=api_timeout)
+                api_devices = _json_from_response(resp2, api_url_2)
+            except Exception as e2:
+                error_msg = 'Failed to retrieve devices from Gluware Control: {msg}'.format(msg=e2)
+                raise AnsibleError(to_native(error_msg))
+
         # Process the API data into the inventory object.
         self._update_inventory_obj(api_devices)
 
+    def _get_path(self, data, path):
+        """Return nested value using dot.path lookup (e.g., 'site.path')."""
+        cur = data
+        for part in str(path).split('.'):
+            if isinstance(cur, dict):
+                cur = cur.get(part, None)
+            else:
+                return None
+        return cur
+
+    def _matches_value(self, actual, expected):
+        """Equality, list membership, or regex via 'regex:<pattern>'."""
+        if expected is None:
+            return True
+        if isinstance(expected, (list, tuple, set)):
+            return actual in expected
+        if isinstance(expected, str) and expected.startswith('regex:'):
+            pat = expected[6:]
+            try:
+                import re
+                return re.search(pat, '' if actual is None else str(actual)) is not None
+            except re.error:
+                return False
+        # default: stringified equality to avoid type quirks from JSON
+        return str(actual) == str(expected)
+
+    def _device_passes_filters(self, dev):
+        """Return True if dev matches all device_filters."""
+        for key, expected in (self._device_filters or {}).items():
+            actual = self._get_path(dev, key)
+            if not self._matches_value(actual, expected):
+                return False
+        return True
+
 
 def make_authenticated_request(url, user, password, validate_certs=True, timeout=30):
-    response = requests.get(
-        url,
-        auth=HTTPBasicAuth(user, password),
-        verify=validate_certs,
-        timeout=timeout
+    """
+    Perform an authenticated GET using Ansible's Request client.
+
+    Parameters:
+        url (str): Endpoint to call.
+        user (str): Username for basic auth.
+        password (str): Password for basic auth.
+        validate_certs (bool): Validate SSL certificates (default True).
+        timeout (int|float): Request timeout in seconds.
+
+    Returns:
+        HTTPResponse-like object with .read() available.
+
+    Raises:
+        SSLValidationError, ConnectionError, URLError, HTTPError on failures.
+    """
+    client = Request(
+        url_username=user,
+        url_password=password,
+        validate_certs=validate_certs,
+        force_basic_auth=True,  # mimic requests' preemptive auth
     )
-    response.raise_for_status()
-    return response
+    return client.open('GET', url, timeout=timeout)
+
+
+def _json_from_response(resp, url):
+    """
+    Read and parse JSON from a file-like HTTP response.
+    """
+    try:
+        raw = resp.read()
+        text = '' if raw is None else raw.decode('utf-8', errors='replace')
+        if not text:
+            return None
+        return json.loads(text)
+    except (ValueError, TypeError) as e:
+        raise AnsibleError(to_native('Control API response from {u} is not valid JSON: {m}'.format(
+            u=url, m=e)))
