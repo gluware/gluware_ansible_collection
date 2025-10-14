@@ -97,10 +97,10 @@ EXAMPLES = r'''
     org_name: "{{ org_name }}"
     gluware_control: "{{ control }}"
     input_parameter:
-        param_one: param
+      param_one: param
     glu_device_names: "{{ all_device_names }}"
     workflow_name: "Example Workflow"
-    run_once: True
+    run_once: true
 '''
 
 RETURN = r'''

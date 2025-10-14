@@ -224,59 +224,59 @@ options:
 '''
 
 EXAMPLES = r'''
-  - name: Update Device
-    gluware_inc.control.glu_device:
-      org_name: "{{org_name}}"
-      name: "{{inventory_hostname}}"
-      gluware_control: "{{control}}"
-      state: present
-      management_state: "unmanaged"
-      timeout: 50
-      description: Ansible description
-      discovery_level: 2
-      use_issu: True
-      environment: production-test
-      site_name: NYC01
-      zone_name: zoneSacramento
-      vrf: test
-      lock_engine: True
-      custom_fields:
-        PDU Port: "12"
-        Console Port: "55"
+- name: Update Device
+  gluware_inc.control.glu_device:
+    org_name: "{{org_name}}"
+    name: "{{inventory_hostname}}"
+    gluware_control: "{{control}}"
+    state: present
+    management_state: "unmanaged"
+    timeout: 50
+    description: Ansible description
+    discovery_level: 2
+    use_issu: true
+    environment: production-test
+    site_name: NYC01
+    zone_name: zoneSacramento
+    vrf: test
+    lock_engine: true
+    custom_fields:
+    PDU Port: "12"
+    Console Port: "55"
 
-  - name: Create Device
-    gluware_inc.control.glu_device:
-      org_name: "{{org_name}}"
-      name: newDevice
-      gluware_control: "{{control}}"
-      state: present
-      management_state: inventory_only
-      timeout: 30
-      description: new device
-      discovery_level: 3
-      use_issu: False
-      environment: test
-      zone_name: System
-      lock_engine: False
-      credentials: admin
-      enable_pass: enable
-      connection_method: cliConnection
-      vrf: test
-      ip: 1.1.1.1
-      port: 55
-      proxy_ip: 5.5.5.5
-      proxy_port: 44
-      proxy_credentials: test
-      file_server_identifier: REMOTE
-    run_once: True
+- name: Create Device
+  gluware_inc.control.glu_device:
+    org_name: "{{org_name}}"
+    name: newDevice
+    gluware_control: "{{control}}"
+    state: present
+    management_state: inventory_only
+    timeout: 30
+    description: new device
+    discovery_level: 3
+    use_issu: false
+    environment: test
+    zone_name: System
+    lock_engine: false
+    credentials: admin
+    enable_pass: enable
+    connection_method: cliConnection
+    vrf: test
+    ip: 1.1.1.1
+    port: 55
+    proxy_ip: 5.5.5.5
+    proxy_port: 44
+    proxy_credentials: test
+    file_server_identifier: REMOTE
+  run_once: true
 
-  - name: Delete Device
-    gluware_inc.control.glu_device:
-      org_name: "{{org_name}}"
-      name: newDevice
-      gluware_control: "{{control}}"
-      state: absent
-    run_once: True
+- name: Delete Device
+  gluware_inc.control.glu_device:
+    org_name: "{{org_name}}"
+    name: newDevice
+    gluware_control: "{{control}}"
+    state: absent
+  run_once: true
 '''
 
 import os

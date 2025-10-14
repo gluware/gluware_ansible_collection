@@ -48,7 +48,7 @@ EXAMPLES = r'''
   gluware_inc.control.glu_rpa_workflow:
     gluware_control: "{{control}}"
     input_parameter:
-        param_one: param
+      param_one: param
     device_id: "{{ glu_device_id }}"
     workflow_name: "Example Workflow"
 '''

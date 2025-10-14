@@ -43,7 +43,7 @@ jobs:
          # sanity-skip-tests: import
           pull-request-change-detection: false
   run-ansible-module-test:
-    runs-on: self-hosted  
+    runs-on: self-hosted
     name: Test changed-files
     needs:
       - sanity
@@ -166,7 +166,7 @@ jobs:
       - name: Show Recap of Audit Batch Playbook
         if: contains(steps.changed-files.outputs.all_changed_files, 'glu_audit_config_batch.py')
         run: echo ${{ steps.ansible_dev_audit_batch.outputs.rc }}
-  check:  
+  check:
     if: always()
     needs:
       - sanity
