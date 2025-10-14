@@ -6,6 +6,12 @@ Gluware Control Collection Release Notes
 
 This changelog describes changes after version 1.1.2.
 
+v2.0.1
+Minor Changes
+-------------
+- Updated code format to be compatible with Ansible linters
+- Modules that were updated ["glu_device", "glu_rpa_workflow", "glu_rpa_workflow_batch"]
+
 v2.0.0
 =======
 
