@@ -115,8 +115,15 @@ This example will show how to utilize all Gluware Ansible modules to manage the 
         description : "Ansible Audit"
         audit_policy: "<Gluware Audit Policy Name>"
 ```
+
 ## Testing
 Tested with Ansible Core v2.18
+
+## Support
+As Red Hat Ansible Certified Content, this collection is entitled to support through the Ansible Automation Platform (AAP) using the **Create issue** button on the top right corner. If a support case cannot be opened with Red Hat and the collection has been obtained either from Galaxy or GitHub, there may community help available on the [Ansible Forum](https://forum.ansible.com/) or by raising a [GitHub Issue](https://github.com/gluware/gluware_ansible_collection/issues).
+
+## Release Notes and Roadmap
+The collection release notes can be found [here](https://github.com/gluware/gluware_ansible_collection/blob/main/CHANGELOG.rst).
 
 ## License Information
 GNU General Public License v3.0 or later.
