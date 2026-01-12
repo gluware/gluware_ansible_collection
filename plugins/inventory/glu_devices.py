@@ -223,6 +223,9 @@ try:
 except ImportError:
     from urllib.parse import urljoin
 
+from ansible.module_utils.urls import Request, SSLValidationError, ConnectionError
+from ansible.module_utils.six.moves.urllib.error import HTTPError, URLError
+
 # Mapping between the discoveredOs variable and ansible_network_os
 DiscoveredOSToAnsibleNetworkOS = {
     'NX-OS': 'cisco.nxos.nxos',
@@ -288,13 +291,18 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                     connect_ip = connection_info_obj.get('ip')
                     connect_port = connection_info_obj.get('port')
                     connect_info = connection_info_obj.get('credentials')
-                    if connect_info:
-                        connect_username = connect_info.get('userName')
-                        connect_password = connect_info.get('password')
-                    else:
-                        connect_username = connection_info_obj.get('userName')
-                        connect_password = connection_info_obj.get('password')
-                    connect_enable_password = connection_info_obj.get('enablePassword')
+                    connect_username = None
+                    connect_password = None
+                    connect_enable_password = None
+                    if not self._used_fallback_api:
+                        if connect_info:
+                            connect_username = connect_info.get('userName')
+                            connect_password = connect_info.get('password')
+                        else:
+                            connect_username = connection_info_obj.get('userName')
+                            connect_password = connection_info_obj.get('password')
+
+                        connect_enable_password = connection_info_obj.get('enablePassword')
 
                     # Special logic if password and enable password is not available.
                     if not connect_password:
@@ -396,7 +404,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         api_trust_https = self.get_option('trust_any_host_https_certs')
         if not api_trust_https:
             api_trust_https = os.environ.get('GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS')
-
+        self._used_fallback_api = False
         if (self.get_option('org_name')):
             org_url = urljoin(api_host, '/api/organizations?name=' + self.get_option('org_name'))
             org = make_authenticated_request(org_url, api_user, api_password,
@@ -404,13 +412,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                                              timeout=api_timeout)
             org_obj = (_json_from_response(org, org_url))
             org_id = (org_obj[0]['id'])
-            # This api call is for Gluware Control 3.6 and greater.
             api_url_1 = urljoin(api_host, '/api/devices?showPassword=true' + '&orgId=' + org_id)
-            # This api call is for Gluware Control 3.5.
-            api_url_2 = urljoin(api_host, '/api/devices' + '&orgId=' + org_id)
+            api_url_2 = urljoin(api_host, '/api/devices?orgId=' + org_id)
         else:
             api_url_1 = urljoin(api_host, '/api/devices?showPassword=true')
-            # This api call is for Gluware Control 3.5.
             api_url_2 = urljoin(api_host, '/api/devices')
 
         try:
@@ -418,8 +423,9 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                                                validate_certs=not api_trust_https,
                                                timeout=api_timeout)
             api_devices = _json_from_response(resp1, api_url_1)
-        except (SSLValidationError, ConnectionError) as e1:
+        except (SSLValidationError, ConnectionError, HTTPError, URLError) as e1:
             try:
+                self._used_fallback_api = True
                 resp2 = make_authenticated_request(api_url_2, api_user, api_password,
                                                    validate_certs=not api_trust_https,
                                                    timeout=api_timeout)

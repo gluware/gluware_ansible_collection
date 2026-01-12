@@ -6,6 +6,13 @@ Gluware Control Collection Release Notes
 
 This changelog describes changes after version 1.1.2.
 
+v2.0.2
+=======
+
+Minor Changes
+-------------
+- Fixed issue where non System Developer role in Gluware was unable to query the devices in Device Manager for inventory
+
 v2.0.1
 =======
 
