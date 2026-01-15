@@ -6,6 +6,14 @@ Gluware Control Collection Release Notes
 
 This changelog describes changes after version 1.1.2.
 
+v2.0.3
+=======
+
+Minor Changes
+-------------
+- Updated glu_devices inventory plugin to comply with pep8 formatting
+- Updated README.md to not include Ansible installation steps
+
 v2.0.2
 =======
 
