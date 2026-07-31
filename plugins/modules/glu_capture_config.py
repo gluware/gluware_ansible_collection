@@ -42,9 +42,6 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
-#
-# Trigger a Gluware Control config capture for the current device
-#
 - name: Capture Config
   gluware_inc.control.glu_capture_config:
     gluware_control: "{{control}}"
@@ -188,7 +185,7 @@ def run_module():
         job = glu_api._get_work_output(work_id, "capture")
         merged = {}
         merged.update(job)
-        if (merged["summary"]["successCount"] == 1):
+        if (merged["status"] == "SUCCESSFUL"):
             if default:
                 glu_org_id = glu_api._get_org_name(org_name)
                 org_id = glu_org_id[0].get('id')

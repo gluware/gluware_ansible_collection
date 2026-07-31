@@ -29,9 +29,6 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
-#
-# Trigger a Gluware Control config capture for the current device
-#
 - name: View Device Facts
   gluware_inc.control.glu_device_facts:
     gluware_control: "{{control}}"

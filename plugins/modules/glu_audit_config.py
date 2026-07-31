@@ -41,9 +41,6 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
-#
-# Trigger a Gluware Control audit on the current captured config for the current device.
-#
 - name: Creating an audit on the current captured config for the current device
   glu_audit_config:
     gluware_control: "{{control}}"

@@ -100,7 +100,7 @@ EXAMPLES = r'''
       param_one: param
     glu_device_names: "{{ all_device_names }}"
     workflow_name: "Example Workflow"
-    run_once: true
+  run_once: true
 '''
 
 RETURN = r'''

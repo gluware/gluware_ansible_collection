@@ -35,9 +35,6 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
-    #
-    # Trigger a Gluware Control provision for the current device.
-    #
 - name: Execute a Provision of a Config Model
   glu_cm_provision:
     gluware_control: "{{control}}"

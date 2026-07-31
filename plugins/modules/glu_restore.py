@@ -35,9 +35,6 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
-#
-# Trigger a Gluware Control restore for the current device
-#
 - name: Restore device from Backup
   gluware_inc.control.glu_restore:
     gluware_control: "{{control}}"

@@ -31,9 +31,6 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
-    #
-    # Trigger a Gluware Control discover device attributes for the current device
-    #
 - name: Discover device properties
   gluware_inc.control.glu_run_discover_device_attributes:
     org_name: "gluware_organization"

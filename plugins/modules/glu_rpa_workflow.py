@@ -41,9 +41,6 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = r'''
-#
-# Trigger a Gluware Control config capture for the current device
-#
 - name: Execute RPA Workflow
   gluware_inc.control.glu_rpa_workflow:
     gluware_control: "{{control}}"
