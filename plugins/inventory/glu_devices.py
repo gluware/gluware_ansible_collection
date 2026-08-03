@@ -213,6 +213,7 @@ from ansible.errors import AnsibleError
 
 # Use Ansible's HTTP client instead of 'requests'
 from ansible.module_utils.urls import Request, SSLValidationError, ConnectionError
+from ansible.module_utils.six.moves.urllib.error import HTTPError, URLError
 import json
 import re
 import os

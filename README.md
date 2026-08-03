@@ -6,14 +6,9 @@ The Gluware Ansible collection provides modules and plugins for Ansible playbook
 ## Requirements
 
 - Python 3.12+
-- Ansible 2.15+
+- Ansible 2.16+
 
 ## Installation
-
-### Python Modules and Ansible
-```
-pip install ansible
-```
 
 ### Gluware Ansible Collection
 Before using this collection, you need to install it with the Ansible Galaxy command-line tool:
