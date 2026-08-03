@@ -17,18 +17,32 @@ Before using this collection, you need to install it with the Ansible Galaxy com
 ansible-galaxy collection install gluware_inc.control
 ```
 
-See using [Ansible collections](https://docs.ansible.com/ansible/latest/user_guide/collections_using.html#installing-collections) for more details.
+### Installing from a requirements file
 
-### Other Installation Options
+You can include this collection in a `requirements.yml` file and install it with `ansible-galaxy collection install -r requirements.yml`:
 
-#### Build From Source
+```yaml
+collections:
+  - name: gluware_inc.control
+```
 
-Follow these steps to install from source:
+### Installing a specific version
 
-1. ``git clone https://github.com/gluware/gluware_ansible_collection.git``
-2. ``cd gluware_ansible_collection``
-3. ``ansible-galaxy collection build .``
-4. ``ansible-galaxy collection install gluware_inc-control-*.tar.gz``
+Use the following syntax to install version 1.0.0:
+
+```bash
+ansible-galaxy collection install gluware_inc.control:==1.0.0
+```
+
+See [using Ansible collections](https://docs.ansible.com/ansible/devel/user_guide/collections_using.html) for more details.
+
+### Upgrading a collection
+
+To upgrade the collection to the latest available version, run the following command:
+
+```bash
+ansible-galaxy collection install gluware_inc.control --upgrade
+```
 
 ## Use Cases
 
