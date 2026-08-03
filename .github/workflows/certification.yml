@@ -13,6 +13,8 @@ permissions:
   contents: read
 
 on:
+  push:
+    branches: ['**']
   pull_request:
     branches: [main]
   workflow_dispatch:
