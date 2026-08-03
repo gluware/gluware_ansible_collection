@@ -396,7 +396,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         api_trust_https = self.get_option('trust_any_host_https_certs')
         if not api_trust_https:
             api_trust_https = os.environ.get('GLU_CONTROL_TRUST_ANY_HOST_HTTPS_CERTS')
-
+        self._used_fallback_api = False
         if (self.get_option('org_name')):
             org_url = urljoin(api_host, '/api/organizations?name=' + self.get_option('org_name'))
             org = make_authenticated_request(org_url, api_user, api_password,
@@ -404,13 +404,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                                              timeout=api_timeout)
             org_obj = (_json_from_response(org, org_url))
             org_id = (org_obj[0]['id'])
-            # This api call is for Gluware Control 3.6 and greater.
             api_url_1 = urljoin(api_host, '/api/devices?showPassword=true' + '&orgId=' + org_id)
-            # This api call is for Gluware Control 3.5.
-            api_url_2 = urljoin(api_host, '/api/devices' + '&orgId=' + org_id)
+            api_url_2 = urljoin(api_host, '/api/devices?orgId=' + org_id)
         else:
             api_url_1 = urljoin(api_host, '/api/devices?showPassword=true')
-            # This api call is for Gluware Control 3.5.
             api_url_2 = urljoin(api_host, '/api/devices')
 
         try:
@@ -418,8 +415,9 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                                                validate_certs=not api_trust_https,
                                                timeout=api_timeout)
             api_devices = _json_from_response(resp1, api_url_1)
-        except (SSLValidationError, ConnectionError) as e1:
+        except (SSLValidationError, ConnectionError, HTTPError, URLError) as e1:
             try:
+                self._used_fallback_api = True
                 resp2 = make_authenticated_request(api_url_2, api_user, api_password,
                                                    validate_certs=not api_trust_https,
                                                    timeout=api_timeout)
